@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useId, useState } from "react";
-import { recordCallAction, type ActionState } from "@/app/actions";
+import { recordCallAction, type ActionState } from "@/lib/actions";
 import { CALL_STATUS_LABELS, SALES_STAGE_LABELS } from "@/lib/domain/labels";
 import { CALL_STATUSES, SALES_STAGES, type CallStatus, type SalesStage } from "@/lib/domain/types";
 import { buttonClass, FieldLabel, FormMessage, inputClass } from "./ui";

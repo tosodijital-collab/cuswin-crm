@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useId, useRef } from "react";
-import { addNoteAction, setStageAction, voidActivityAction, type ActionState } from "@/app/actions";
+import { addNoteAction, setStageAction, voidActivityAction, type ActionState } from "@/lib/actions";
 import { SALES_STAGE_LABELS } from "@/lib/domain/labels";
 import { SALES_STAGES, type SalesStage } from "@/lib/domain/types";
 import { buttonClass, FieldLabel, FormMessage, inputClass } from "./ui";

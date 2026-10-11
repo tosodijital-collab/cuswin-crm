@@ -1,10 +1,12 @@
+"use client";
+
 import Link from "next/link";
-import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
 import { AppointmentControls, CalendarStatus, NewAppointmentToggle } from "@/components/appointment-forms";
 import { NoteForm, StageForm, VoidActivityButton } from "@/components/business-forms";
 import { CallOutcomeForm } from "@/components/call-outcome-form";
-import { CallStatusBadge, EmptyState, Panel, StageBadge } from "@/components/ui";
+import { CallStatusBadge, EmptyState, LoadState, Panel, StageBadge } from "@/components/ui";
+import { useData } from "@/lib/client/refresh";
 import { getRepository } from "@/lib/data";
 import { formatPhone, mapsHref, telHref, websiteHref } from "@/lib/domain/contact-info";
 import {
@@ -19,11 +21,12 @@ import { MAX_FAILED_STREAK } from "@/lib/domain/rules";
 import { addDays, formatDateTime, formatShortDate, relativeDay, toDateStr, toTimeStr } from "@/lib/domain/time";
 import type { Activity } from "@/lib/domain/types";
 
-export default async function BusinessPage({ params }: PageProps<"/isletme/[id]">) {
-  const { id } = await params;
+export function BusinessDetailScreen({ id }: { id: string }) {
   const repo = getRepository();
-  const [detail, settings] = await Promise.all([repo.getBusiness(id), repo.getSettings()]);
-  if (!detail) notFound();
+  const { data, error } = useData(() => Promise.all([repo.getBusiness(id), repo.getSettings()]), id);
+  if (!data) return <LoadState error={error} />;
+  const [detail, settings] = data;
+  if (!detail) return <LoadState error="İşletme bulunamadı." />;
   const { business: b, openTask, activities, appointments } = detail;
   const now = new Date();
   const today = toDateStr(now);
@@ -42,7 +45,7 @@ export default async function BusinessPage({ params }: PageProps<"/isletme/[id]"
             <StageBadge stage={b.salesStage} />
           </div>
         </div>
-        <Link href={`/isletme/${b.id}/duzenle`} className="text-[15px] font-medium text-meet hover:underline">
+        <Link href={`/isletme/duzenle?id=${b.id}`} className="text-[15px] font-medium text-meet hover:underline">
           Bilgileri düzenle
         </Link>
       </div>

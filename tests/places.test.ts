@@ -1,7 +1,8 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { decideImport, mapScrapedPlace } from "@/lib/domain/places";
 import type { Business, PlaceInput } from "@/lib/domain/types";
-import { eventIdFor } from "@/lib/integrations/google-calendar";
+import { MemoryRepository } from "@/lib/data/memory-store";
+import { eventIdFor } from "../jobs/google-calendar";
 
 const raw = (over: Record<string, unknown> = {}) => ({
   title: "Örnek Ağız ve Diş Sağlığı Polikliniği",
@@ -71,12 +72,7 @@ describe("içe aktarma tekrar kontrolü", () => {
 
 describe("yerel depo içe aktarma", () => {
   async function emptyRepo() {
-    vi.resetModules();
-    vi.stubEnv("DATA_MODE", "yerel");
-    vi.stubEnv("DATA_FILE", `/tmp/cuswin-test-${crypto.randomUUID()}.json`);
-    delete (globalThis as { __cuswinRepo?: unknown }).__cuswinRepo;
-    const { getMemoryRepository } = await import("@/lib/data/memory-store");
-    return getMemoryRepository();
+    return new MemoryRepository({ seed: false });
   }
   const p = (i: number, over: Partial<PlaceInput> = {}): PlaceInput => ({
     name: `Klinik ${i}`,
@@ -134,14 +130,6 @@ describe("yerel depo içe aktarma", () => {
     expect(b.reviewReason).toContain("telefon");
   });
 
-  it("yerel mod durumu dosyaya yazar ve yeniden yüklenince korur", async () => {
-    const repo = await emptyRepo();
-    await repo.importPlaces([p(1)], 20);
-    vi.resetModules();
-    delete (globalThis as { __cuswinRepo?: unknown }).__cuswinRepo;
-    const { getMemoryRepository } = await import("@/lib/data/memory-store");
-    expect(await getMemoryRepository().listBusinesses({})).toHaveLength(1);
-  });
 });
 
 describe("Google Takvim", () => {

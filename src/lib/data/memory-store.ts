@@ -1,14 +1,8 @@
-// Bellek içi depo. "demo" modunda uydurma kayıtlarla başlar ve kalıcı değildir.
-// "yerel" modunda boş başlar, gerçek taranan kayıtları yerel bir JSON dosyasına yazar (yalnızca yerel test için;
-// kalıcı veritabanı PostgreSQL aşamasında gelecek).
+// Bellek içi DEMO deposu: Supabase ayarlı değilken tarayıcıda uydurma kayıtlarla çalışır, kalıcı değildir.
+// Testlerde boş başlatılarak kuralları doğrulamak için de kullanılır.
 
-import "server-only";
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
-import path from "node:path";
 import { normalizePhone, normalizeWebsite } from "@/lib/domain/contact-info";
 import { decideImport } from "@/lib/domain/places";
-import { isCalendarConfigured } from "@/lib/integrations/google-calendar";
-import { scraperBin } from "@/lib/integrations/maps-scraper";
 import {
   dataIssues,
   decideCallOutcome,
@@ -74,23 +68,12 @@ function trLower(s: string) {
   return s.toLocaleLowerCase("tr-TR");
 }
 
-class MemoryRepository implements CrmRepository {
+export class MemoryRepository implements CrmRepository {
+  readonly mode = "demo" as const;
   private s: State;
 
-  constructor(
-    readonly mode: "demo" | "yerel",
-    private readonly file?: string,
-  ) {
-    this.s = mode === "demo" ? seed() : load(file);
-  }
-
-  /** Yerel modda durumu dosyaya atomik olarak yazar. */
-  save() {
-    if (this.mode !== "yerel" || !this.file) return;
-    mkdirSync(path.dirname(this.file), { recursive: true });
-    const tmp = `${this.file}.tmp`;
-    writeFileSync(tmp, JSON.stringify({ ...this.s, businesses: [...this.s.businesses.values()] }), "utf8");
-    renameSync(tmp, this.file);
+  constructor(options: { seed?: boolean } = {}) {
+    this.s = options.seed === false ? emptyState() : seed();
   }
 
   // ---------- okuma ----------
@@ -310,9 +293,9 @@ class MemoryRepository implements CrmRepository {
     return {
       ...DEFAULT_SETTINGS,
       ...this.s.settings,
-      notificationsConfigured: Boolean(process.env.NTFY_URL && process.env.NTFY_TOPIC),
-      calendarConfigured: isCalendarConfigured(),
-      scannerConfigured: Boolean(scraperBin()),
+      notificationsConfigured: false,
+      calendarConfigured: false,
+      scannerConfigured: false,
     };
   }
 
@@ -335,6 +318,14 @@ class MemoryRepository implements CrmRepository {
     if (existing.selected >= existing.target) return { run: existing, created: false, added: 0 };
     const added = topUpDailyList(this.s, existing);
     return { run: existing, created: false, added };
+  }
+
+  async requestScan(): Promise<{ queued: boolean; message: string }> {
+    return { queued: false, message: "Demo modunda tarama yapılmaz." };
+  }
+
+  async queueCalendarSync(appointmentId: string): Promise<void> {
+    this.mustAppointment(appointmentId);
   }
 
   // ---------- tarama ----------
@@ -640,46 +631,9 @@ function emptyState(): State {
   return { businesses: new Map(), tasks: [], activities: [], appointments: [], runs: [], settings: { ...DEFAULT_SETTINGS }, scans: [], scanCursor: 0 };
 }
 
-function load(file?: string): State {
-  if (!file || !existsSync(file)) return emptyState();
-  const raw = JSON.parse(readFileSync(file, "utf8")) as Omit<State, "businesses"> & { businesses: Business[] };
-  return {
-    ...emptyState(),
-    ...raw,
-    settings: { ...DEFAULT_SETTINGS, ...raw.settings },
-    businesses: new Map(raw.businesses.map((b) => [b.id, b])),
-  };
-}
+let demoRepo: MemoryRepository | undefined;
 
-const MUTATING = new Set<PropertyKey>([
-  "recordCall", "setSalesStage", "addNote", "voidActivity", "createBusiness", "updateBusiness",
-  "createAppointment", "setCalendarSync", "updateAppointment", "cancelAppointment", "completeAppointment",
-  "updateSettings", "runDailyList", "importPlaces", "saveScan", "setScanCursor",
-]);
-
-/** Değişiklik yapan her çağrıdan sonra yerel dosyaya yazar. */
-function withPersistence(repo: MemoryRepository): MemoryRepository {
-  return new Proxy(repo, {
-    get(target, prop, receiver) {
-      const value = Reflect.get(target, prop, receiver);
-      if (typeof value !== "function") return value;
-      if (!MUTATING.has(prop)) return value.bind(target);
-      return async (...args: unknown[]) => {
-        const out = await value.apply(target, args);
-        target.save();
-        return out;
-      };
-    },
-  });
-}
-
-const globalForRepo = globalThis as unknown as { __cuswinRepo?: MemoryRepository };
-
-export function getMemoryRepository(): MemoryRepository {
-  if (!globalForRepo.__cuswinRepo) {
-    const mode = process.env.DATA_MODE === "yerel" ? "yerel" : "demo";
-    const file = path.resolve(/*turbopackIgnore: true*/ process.env.DATA_FILE ?? ".data/yerel.json");
-    globalForRepo.__cuswinRepo = withPersistence(new MemoryRepository(mode, mode === "yerel" ? file : undefined));
-  }
-  return globalForRepo.__cuswinRepo;
+export function getDemoRepository(): MemoryRepository {
+  demoRepo ??= new MemoryRepository();
+  return demoRepo;
 }

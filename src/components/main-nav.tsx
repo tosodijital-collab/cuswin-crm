@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { getBrowserSupabase } from "@/lib/supabase/client";
 
 const LINKS = [
   { href: "/", label: "Bugün" },
@@ -15,16 +16,26 @@ function isActive(pathname: string, href: string) {
   return pathname.startsWith(href) || (href === "/kayitlar" && pathname.startsWith("/isletme"));
 }
 
-export function MainNav() {
+export function MainNav({ showSignOut }: { showSignOut?: boolean }) {
   const pathname = usePathname();
+  const router = useRouter();
+  const signOut = async () => {
+    await getBrowserSupabase().auth.signOut();
+    router.replace("/giris");
+  };
   return (
     <>
       <header className="border-b border-line bg-surface">
-        <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
+        <div className="mx-auto flex h-14 max-w-6xl items-center gap-2 px-4">
           <Link href="/" className="text-[17px] font-semibold tracking-tight">
             Cuswin <span className="font-normal text-muted">Arama</span>
           </Link>
-          <nav className="hidden gap-1 md:flex" aria-label="Ana menü">
+          {showSignOut && (
+            <button type="button" onClick={signOut} className="order-last text-[15px] text-muted hover:text-ink md:ml-2">
+              Çıkış
+            </button>
+          )}
+          <nav className="ml-auto mr-2 hidden gap-1 md:flex" aria-label="Ana menü">
             {LINKS.map((l) => (
               <Link
                 key={l.href}

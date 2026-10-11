@@ -1,8 +1,14 @@
 import type { NextConfig } from "next";
 
+// GitHub Pages'te statik yayın. Özel alan adı (doktor.toso.tr) bağlanana kadar site /<depo-adı> altında
+// yayınlanır; o durumda NEXT_PUBLIC_BASE_PATH="/cuswin-crm" verilir.
+const basePath = process.env.NEXT_PUBLIC_BASE_PATH || undefined;
+
 const nextConfig: NextConfig = {
-  // Kişisel, canlı CRM verisi: önbellek bileşenleri gereksiz. Docker için bağımsız çıktı.
-  output: process.env.BUILD_STANDALONE === "1" ? "standalone" : undefined,
+  output: "export",
+  trailingSlash: true,
+  basePath,
+  images: { unoptimized: true },
   turbopack: {
     rules: {
       "*.css": {

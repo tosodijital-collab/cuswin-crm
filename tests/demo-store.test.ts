@@ -2,10 +2,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // Her test temiz bir demo deposu ile başlar.
 async function freshRepo() {
-  vi.resetModules();
-  delete (globalThis as { __cuswinRepo?: unknown }).__cuswinRepo;
-  const { getMemoryRepository } = await import("@/lib/data/memory-store");
-  return getMemoryRepository();
+  const { MemoryRepository } = await import("@/lib/data/memory-store");
+  return new MemoryRepository();
 }
 
 describe("demo deposu", () => {

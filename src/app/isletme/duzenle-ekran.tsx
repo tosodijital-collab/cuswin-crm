@@ -1,16 +1,18 @@
+"use client";
+
 import Link from "next/link";
-import { notFound } from "next/navigation";
 import { BusinessForm } from "@/components/business-form";
-import { PageTitle } from "@/components/ui";
+import { LoadState, PageTitle } from "@/components/ui";
+import { useData } from "@/lib/client/refresh";
 import { getRepository } from "@/lib/data";
 
-export default async function EditBusinessPage({ params }: PageProps<"/isletme/[id]/duzenle">) {
-  const { id } = await params;
-  const detail = await getRepository().getBusiness(id);
-  if (!detail) notFound();
+export function EditBusinessScreen({ id }: { id: string }) {
+  const { data: detail, error, loading } = useData(() => getRepository().getBusiness(id), id);
+  if (loading || error) return <LoadState error={error} />;
+  if (!detail) return <LoadState error="İşletme bulunamadı." />;
   return (
     <div>
-      <Link href={`/isletme/${id}`} className="text-sm text-muted hover:text-ink">
+      <Link href={`/isletme?id=${id}`} className="text-sm text-muted hover:text-ink">
         {detail.business.name}
       </Link>
       <PageTitle>Bilgileri düzenle</PageTitle>

@@ -8,7 +8,7 @@ import {
   retryCalendarAction,
   updateAppointmentAction,
   type ActionState,
-} from "@/app/actions";
+} from "@/lib/actions";
 import { MEETING_TYPE_LABELS } from "@/lib/domain/labels";
 import { MEETING_TYPES, type Appointment } from "@/lib/domain/types";
 import { buttonClass, FieldLabel, FormMessage, inputClass } from "./ui";

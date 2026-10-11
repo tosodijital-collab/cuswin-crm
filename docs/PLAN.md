@@ -1,5 +1,12 @@
 # Uygulama planı ve kararlar
 
+> **Güncel mimari (2026-10-12, kullanıcı kararı):** VPS kullanılmayacak. Arayüz GitHub Pages (açık depo, statik),
+> veri ve giriş Supabase (ücretsiz plan), zamanlanmış işler GitHub Actions, bildirim ntfy.sh. Aşağıdaki VPS/Docker
+> Compose maddeleri bu karar ile geçersizdir.
+> Bilinen ödünler: Actions zamanlaması 5–15 dk kayabilir (hatırlatmalar gecikebilir); Google, Actions IP'lerinden
+> taramayı daha kolay engelleyebilir; açık depoda 60 gün commit olmazsa zamanlama kapanır (günlük görev yeniden
+> etkinleştirir); ücretsiz Supabase 7 gün hareketsiz kalırsa uyur (5 dakikalık iş bunu engeller).
+
 ## Veri kaynağı
 - **Google Places API kalıcı CRM kaydı için uygun değil**: Google Maps Platform şartları içeriğin (ad, telefon, adres…)
   önbelleğe alınmasını/saklanmasını yasaklar; yalnızca `place_id` süresiz saklanabilir.

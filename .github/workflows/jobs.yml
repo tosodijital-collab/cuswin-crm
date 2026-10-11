@@ -1,0 +1,63 @@
+name: Zamanlanmış işler
+
+on:
+  schedule:
+    - cron: "0 5 * * *" # 08:00 Türkiye: Google Maps taraması + günün arama listesi
+    - cron: "*/5 * * * *" # hatırlatmalar, takvim, "şimdi tara" istekleri, kaçırılan liste telafisi
+  workflow_dispatch:
+    inputs:
+      task:
+        description: Çalıştırılacak görev
+        required: true
+        default: frequent
+        type: choice
+        options: [daily, frequent]
+
+permissions:
+  contents: read
+  actions: write # zamanlamayı canlı tutmak için
+
+concurrency:
+  group: crm-jobs
+  cancel-in-progress: false
+
+jobs:
+  run:
+    # Supabase bağlanmadan çalışmaz
+    if: ${{ vars.SUPABASE_URL != '' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Görevi seç
+        id: task
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "task=${{ inputs.task }}" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.event.schedule }}" = "0 5 * * *" ]; then
+            echo "task=daily" >> "$GITHUB_OUTPUT"
+          else
+            echo "task=frequent" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Çalıştır
+        run: npx tsx jobs/run.ts "${{ steps.task.outputs.task }}"
+        env:
+          SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+          APP_URL: ${{ vars.APP_URL }}
+          GMAPS_SCRAPER_IMAGE: gosom/google-maps-scraper:v1.18.1
+          GMAPS_SCRAPER_WORKDIR: ${{ runner.temp }}/scraper
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          GOOGLE_CALENDAR_ID: ${{ secrets.GOOGLE_CALENDAR_ID }}
+      - name: Zamanlamayı canlı tut
+        # Açık depolarda 60 gün commit olmazsa GitHub zamanlanmış işleri kapatır; günlük görev yeniden etkinleştirir.
+        if: steps.task.outputs.task == 'daily'
+        run: gh api -X PUT "repos/${{ github.repository }}/actions/workflows/jobs.yml/enable"
+        env:
+          GH_TOKEN: ${{ github.token }}

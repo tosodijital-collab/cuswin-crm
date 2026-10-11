@@ -1,8 +1,6 @@
 // Randevuları Google Takvim'e yazar. Kimlik: servis hesabı; takvim bu hesapla "etkinlikleri değiştirebilir" olarak paylaşılır.
 // Ücretsiz Calendar API kotası kullanılır; faturalandırma gerekmez.
 
-import "server-only";
-import { readFile } from "node:fs/promises";
 import { JWT } from "google-auth-library";
 import { z } from "zod";
 import { formatPhone } from "@/lib/domain/contact-info";
@@ -22,12 +20,13 @@ const keySchema = z.object({
   private_key: z.string().startsWith("-----BEGIN PRIVATE KEY-----"),
 });
 
-type Config = { calendarId: string; keyFile: string };
+type Config = { calendarId: string; keyJson: string };
 
+/** Anahtar GitHub Secrets'tan ortam değişkeni olarak gelir (GOOGLE_SERVICE_ACCOUNT_JSON). */
 function config(): Config | undefined {
   const calendarId = process.env.GOOGLE_CALENDAR_ID?.trim();
-  const keyFile = process.env.GOOGLE_SERVICE_ACCOUNT_KEY_FILE?.trim();
-  return calendarId && keyFile ? { calendarId, keyFile } : undefined;
+  const keyJson = process.env.GOOGLE_SERVICE_ACCOUNT_JSON?.trim();
+  return calendarId && keyJson ? { calendarId, keyJson } : undefined;
 }
 
 export function isCalendarConfigured(): boolean {
@@ -36,9 +35,15 @@ export function isCalendarConfigured(): boolean {
 
 let clientPromise: Promise<JWT> | undefined;
 
-async function client(keyFile: string): Promise<JWT> {
-  clientPromise ??= readFile(keyFile, "utf8").then((raw) => {
-    const parsed = keySchema.safeParse(JSON.parse(raw));
+async function client(keyJson: string): Promise<JWT> {
+  clientPromise ??= Promise.resolve(keyJson).then((raw) => {
+    let json: unknown;
+    try {
+      json = JSON.parse(raw);
+    } catch {
+      throw new CalendarError("Servis hesabı anahtarı JSON değil.");
+    }
+    const parsed = keySchema.safeParse(json);
     if (!parsed.success) throw new CalendarError("Servis hesabı anahtar dosyası geçersiz.");
     return new JWT({ email: parsed.data.client_email, key: parsed.data.private_key, scopes: [SCOPE] });
   });
@@ -61,7 +66,7 @@ export function eventIdFor(appointmentId: string): string {
 
 async function call(path: string, init: { method: string; body?: unknown }): Promise<Response> {
   const cfg = config()!;
-  const jwt = await client(cfg.keyFile);
+  const jwt = await client(cfg.keyJson);
   const { token } = await jwt.getAccessToken();
   return fetch(`${API}/calendars/${encodeURIComponent(cfg.calendarId)}${path}`, {
     method: init.method,

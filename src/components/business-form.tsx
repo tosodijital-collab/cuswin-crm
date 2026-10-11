@@ -1,13 +1,18 @@
 "use client";
 
-import { useActionState, useState } from "react";
-import { saveBusinessAction, type ActionState } from "@/app/actions";
+import { useRouter } from "next/navigation";
+import { useActionState, useEffect, useState } from "react";
+import { saveBusinessAction, type ActionState } from "@/lib/actions";
 import { ANKARA_DISTRICTS, CATEGORY_LABELS } from "@/lib/domain/labels";
 import { CATEGORIES, type Business } from "@/lib/domain/types";
 import { buttonClass, FieldLabel, FormMessage, inputClass } from "./ui";
 
 export function BusinessForm({ business }: { business?: Business }) {
   const [state, action, pending] = useActionState<ActionState, FormData>(saveBusinessAction, { ok: false });
+  const router = useRouter();
+  useEffect(() => {
+    if (state.ok && state.redirectTo) router.push(state.redirectTo);
+  }, [state, router]);
   const [contacts, setContacts] = useState(
     business?.contacts.length ? business.contacts.map((c) => ({ name: c.name, role: c.role ?? "" })) : [],
   );

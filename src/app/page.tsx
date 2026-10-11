@@ -1,14 +1,18 @@
+"use client";
+
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { CallRow, type CallRowData } from "@/components/call-row";
 import { RunNowButton } from "@/components/settings-forms";
-import { EmptyState, Panel } from "@/components/ui";
+import { EmptyState, LoadState, Panel } from "@/components/ui";
+import { useData } from "@/lib/client/refresh";
 import { getRepository, type TaskView } from "@/lib/data";
 import { CALL_STATUS_LABELS, MEETING_TYPE_LABELS } from "@/lib/domain/labels";
 import { formatLongDate, formatTime, relativeDay, toDateStr } from "@/lib/domain/time";
 
-export default async function HomePage() {
-  const home = await getRepository().getHome();
+export default function HomePage() {
+  const { data: home, error } = useData(() => getRepository().getHome());
+  if (!home) return <LoadState error={error} />;
   const { today, counts, run } = home;
 
   const toRow = (v: TaskView, dueLabel?: string): CallRowData => ({
@@ -92,7 +96,7 @@ export default async function HomePage() {
               {home.appointmentsToday.map(({ appointment: a, business: b }) => (
                 <li key={a.id} className="border-b border-line px-4 py-3 last:border-b-0">
                   <p className="text-lg font-semibold text-meet">{formatTime(a.startsAt)}</p>
-                  <Link href={`/isletme/${b.id}`} className="block font-medium hover:underline">
+                  <Link href={`/isletme?id=${b.id}`} className="block font-medium hover:underline">
                     {b.name}
                   </Link>
                   <p className="text-sm text-muted">

@@ -94,3 +94,8 @@ export function FormMessage({ state }: { state: { ok: boolean; message?: string 
 export function EmptyState({ children }: { children: ReactNode }) {
   return <p className="px-4 py-6 text-[15px] text-muted">{children}</p>;
 }
+
+export function LoadState({ error }: { error?: string }) {
+  if (error) return <p className="rounded-md bg-stop-soft px-3 py-2 text-[15px] text-stop">{error}</p>;
+  return <p className="text-[15px] text-muted">Yükleniyor</p>;
+}

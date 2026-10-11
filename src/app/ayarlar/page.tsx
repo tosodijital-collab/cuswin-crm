@@ -1,14 +1,19 @@
+"use client";
+
 import type { ReactNode } from "react";
 import { RunNowButton, ScanButton, SettingsForm } from "@/components/settings-forms";
-import { EmptyState, PageTitle, Panel } from "@/components/ui";
+import { EmptyState, LoadState, PageTitle, Panel } from "@/components/ui";
+import { useData } from "@/lib/client/refresh";
 import { getRepository } from "@/lib/data";
 import { formatDateTime, formatShortDate } from "@/lib/domain/time";
 
 const TRIGGER_LABELS = { zamanlanmis: "Zamanlanmış", manuel: "Elle", telafi: "Telafi" } as const;
 
-export default async function SettingsPage() {
+export default function SettingsPage() {
   const repo = getRepository();
-  const [settings, runs, scans] = await Promise.all([repo.getSettings(), repo.listRuns(10), repo.listScans(5)]);
+  const { data, error } = useData(() => Promise.all([repo.getSettings(), repo.listRuns(10), repo.listScans(5)]));
+  if (!data) return <LoadState error={error} />;
+  const [settings, runs, scans] = data;
   const last = runs[0];
   const scanRunning = scans.some((s) => s.status === "calisiyor");
 
@@ -63,9 +68,9 @@ export default async function SettingsPage() {
 
       <Block title="Google Maps taraması">
         <p className="mb-4 text-[15px] text-muted">
-          Seçili kategori ve ilçelerde Google Maps aranır; devlet kurumları, kuaför ve güzellik salonları, kapalı
-          işletmeler elenir. Zaten kayıtlı işletmelerin notları ve durumu korunur, yalnızca iletişim bilgileri tazelenir.
-          Tarama sırasında bu sayfa kendini yeniler.
+          Her sabah otomatik çalışır. Seçili kategori ve ilçelerde Google Maps aranır; devlet kurumları, kuaför ve
+          güzellik salonları, kapalı işletmeler elenir. Kayıtlı işletmelerin notları ve durumu korunur. Elle istenen
+          tarama birkaç dakika içinde başlar; bu sayfa ilerlemeyi kendiliğinden gösterir.
         </p>
         {!settings.scannerConfigured && (
           <p className="mb-4 rounded-md bg-late-soft px-3 py-2 text-sm text-late">Tarayıcı bu sunucuda ayarlı değil.</p>

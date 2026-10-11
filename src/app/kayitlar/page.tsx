@@ -1,26 +1,35 @@
+"use client";
+
 import Link from "next/link";
-import { CallStatusBadge, PageTitle, Panel, StageBadge, buttonClass, inputClass } from "@/components/ui";
+import { useSearchParams } from "next/navigation";
+import { Suspense } from "react";
+import { CallStatusBadge, LoadState, PageTitle, Panel, StageBadge, buttonClass, inputClass } from "@/components/ui";
+import { useData } from "@/lib/client/refresh";
 import { getRepository } from "@/lib/data";
+import { downloadCsv, downloadXlsx } from "@/lib/export";
 import { parseBusinessFilters } from "@/lib/data/filters";
 import { formatPhone } from "@/lib/domain/contact-info";
 import { CALL_STATUS_LABELS, CATEGORY_LABELS, SALES_STAGE_LABELS, SOURCE_LABELS } from "@/lib/domain/labels";
 import { relativeDay, toDateStr } from "@/lib/domain/time";
 import { CALL_STATUSES, CATEGORIES, SALES_STAGES, SOURCES } from "@/lib/domain/types";
 
-export default async function RecordsPage({ searchParams }: PageProps<"/kayitlar">) {
-  const params = await searchParams;
-  const filters = parseBusinessFilters(params);
-  const repo = getRepository();
-  const [rows, districts] = await Promise.all([repo.listBusinesses(filters), repo.listDistricts()]);
-  const today = toDateStr(new Date());
+export default function RecordsPage() {
+  return (
+    <Suspense fallback={<LoadState />}>
+      <Records />
+    </Suspense>
+  );
+}
 
-  const query = new URLSearchParams();
-  for (const [k, v] of Object.entries(params)) if (typeof v === "string" && v) query.set(k, v);
-  const exportHref = (format: "csv" | "xlsx") => {
-    const q = new URLSearchParams(query);
-    q.set("format", format);
-    return `/api/disa-aktar?${q}`;
-  };
+function Records() {
+  const searchParams = useSearchParams();
+  const key = searchParams.toString();
+  const filters = parseBusinessFilters(Object.fromEntries(searchParams));
+  const repo = getRepository();
+  const { data, error } = useData(() => Promise.all([repo.listBusinesses(filters), repo.listDistricts()]), key);
+  if (!data) return <LoadState error={error} />;
+  const [rows, districts] = data;
+  const today = toDateStr(new Date());
 
   return (
     <div>
@@ -34,7 +43,7 @@ export default async function RecordsPage({ searchParams }: PageProps<"/kayitlar
         Kayıtlar
       </PageTitle>
 
-      <form className="mb-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4" role="search">
+      <form key={key} className="mb-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4" role="search">
         <input
           name="q"
           type="search"
@@ -65,12 +74,12 @@ export default async function RecordsPage({ searchParams }: PageProps<"/kayitlar
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-[15px]">
         <p className="text-muted">{rows.length} kayıt</p>
         <p className="flex gap-4">
-          <a href={exportHref("csv")} className="font-medium text-meet hover:underline">
+          <button type="button" onClick={() => downloadCsv(rows)} className="font-medium text-meet hover:underline">
             CSV indir
-          </a>
-          <a href={exportHref("xlsx")} className="font-medium text-meet hover:underline">
+          </button>
+          <button type="button" onClick={() => downloadXlsx(rows)} className="font-medium text-meet hover:underline">
             Excel indir
-          </a>
+          </button>
         </p>
       </div>
 
@@ -81,7 +90,7 @@ export default async function RecordsPage({ searchParams }: PageProps<"/kayitlar
           <ul>
             {rows.map((b) => (
               <li key={b.id} className="border-b border-line last:border-b-0">
-                <Link href={`/isletme/${b.id}`} className="grid gap-1 px-4 py-3 hover:bg-paper/60 md:grid-cols-[minmax(0,2fr)_10rem_minmax(0,1.4fr)] md:items-center md:gap-4">
+                <Link href={`/isletme?id=${b.id}`} className="grid gap-1 px-4 py-3 hover:bg-paper/60 md:grid-cols-[minmax(0,2fr)_10rem_minmax(0,1.4fr)] md:items-center md:gap-4">
                   <span className="min-w-0">
                     <span className="block truncate font-medium">{b.name}</span>
                     <span className="block text-sm text-muted">

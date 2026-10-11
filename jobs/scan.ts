@@ -1,13 +1,11 @@
 // Google Maps taraması: ayarlardaki kategori/ilçe tercihlerinden sorgu üretir, sonuçları ayıklayıp içe aktarır.
-// Sunucu aşamasında bu akış pg-boss işi olarak çalışacak; şimdilik sunucu sürecinde arka planda çalışır.
+// GitHub Actions'taki zamanlanmış iş tarafından çalıştırılır.
 
-import "server-only";
-import { getRepository } from "@/lib/data";
+import type { CrmRepository } from "@/lib/data/repository";
 import { ANKARA_DISTRICTS } from "@/lib/domain/labels";
 import { mapScrapedPlace } from "@/lib/domain/places";
 import type { Category, PlaceInput, ScanRun, Settings } from "@/lib/domain/types";
-import { runMapsQuery, ScraperError } from "@/lib/integrations/maps-scraper";
-
+import { runMapsQuery, ScraperError } from "./maps-scraper";
 const QUERY_TERMS: Record<Category, string> = {
   dis: "diş kliniği",
   estetik: "estetik klinik",
@@ -31,15 +29,9 @@ export function buildQueries(settings: Pick<Settings, "categories" | "districts"
   return queries;
 }
 
-let running = false;
-
-/** Taramayı başlatır ve hemen döner. Aynı anda tek tarama çalışır. */
-export async function startScan(): Promise<{ started: boolean; message: string }> {
-  if (running) return { started: false, message: "Bir tarama zaten çalışıyor." };
-  const repo = getRepository();
+/** Taramayı çalıştırır ve bitince sonucu döner. */
+export async function runScan(repo: CrmRepository): Promise<ScanRun> {
   const settings = await repo.getSettings();
-  if (!settings.scannerConfigured) return { started: false, message: "Tarayıcı bu sunucuda ayarlı değil." };
-
   const all = buildQueries(settings);
   const cursor = (await repo.getScanCursor()) % all.length;
   const scan: ScanRun = {
@@ -55,16 +47,12 @@ export async function startScan(): Promise<{ started: boolean; message: string }
     skipped: 0,
     overLimit: 0,
   };
-  running = true;
   await repo.saveScan(scan);
-  void execute(scan, all, cursor).finally(() => {
-    running = false;
-  });
-  return { started: true, message: `Tarama başladı, en fazla ${settings.scanLimit} yeni işletme eklenecek. Birkaç dakika sürebilir.` };
+  await execute(repo, scan, all, cursor);
+  return scan;
 }
 
-async function execute(scan: ScanRun, all: string[], cursor: number) {
-  const repo = getRepository();
+async function execute(repo: CrmRepository, scan: ScanRun, all: string[], cursor: number) {
   try {
     for (let i = 0; i < Math.min(MAX_QUERIES_PER_SCAN, all.length) && scan.added < scan.limit; i++) {
       const query = all[(cursor + i) % all.length];

@@ -76,6 +76,14 @@ export type AppointmentInput = {
   reminderMinutes: number;
 };
 
+export type Integrations = {
+  scanner: boolean;
+  calendar: boolean;
+  notifications: boolean;
+  /** Zamanlanmış işin son çalıştığı an (ISO). */
+  lastHeartbeat?: string;
+};
+
 /** created: yeni liste açıldı; added: bu çalışmada listeye eklenen işletme (eksik gün tamamlanınca da > 0). */
 export type DailyRunResult = { run: DailyRun; created: boolean; added: number };
 
@@ -110,6 +118,11 @@ export interface CrmRepository {
   updateSettings(input: EditableSettings): Promise<void>;
   listRuns(limit: number): Promise<DailyRun[]>;
   runDailyList(trigger: DailyRun["trigger"]): Promise<DailyRunResult>;
+
+  /** Arayüzden tarama isteği bırakır; zamanlanmış iş birkaç dakika içinde çalıştırır. */
+  requestScan(): Promise<{ queued: boolean; message: string }>;
+  /** Randevunun takvim eşitlemesini yeniden kuyruğa alır. */
+  queueCalendarSync(appointmentId: string): Promise<void>;
 
   importPlaces(places: PlaceInput[], maxNew: number): Promise<ImportResult>;
   saveScan(scan: ScanRun): Promise<void>;

@@ -1,8 +1,8 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useActionState, useEffect } from "react";
-import { runDailyListAction, saveSettingsAction, startScanAction, type ActionState } from "@/app/actions";
+import { notifyDataChanged } from "@/lib/client/refresh";
+import { runDailyListAction, saveSettingsAction, startScanAction, type ActionState } from "@/lib/actions";
 import { ANKARA_DISTRICTS, CATEGORY_LABELS } from "@/lib/domain/labels";
 import { CATEGORIES, type Settings } from "@/lib/domain/types";
 import { buttonClass, FieldLabel, FormMessage, inputClass } from "./ui";
@@ -73,17 +73,17 @@ export function RunNowButton({ primary }: { primary?: boolean }) {
 
 export function ScanButton({ running, disabled }: { running: boolean; disabled: boolean }) {
   const [state, action, pending] = useActionState(startScanAction, initial);
-  const router = useRouter();
-  // Tarama sürerken ekranı birkaç saniyede bir tazele; bitince durur.
+  // İstek bırakıldıktan sonra ve tarama sürerken ekranı tazele; tarama bitince durur.
+  const active = running || state.ok;
   useEffect(() => {
-    if (!running) return;
-    const t = setInterval(() => router.refresh(), 4000);
+    if (!active) return;
+    const t = setInterval(notifyDataChanged, 10_000);
     return () => clearInterval(t);
-  }, [running, router]);
+  }, [active]);
   return (
     <form action={action} className="flex flex-wrap items-center gap-3">
       <button type="submit" disabled={pending || running || disabled} className={buttonClass.primary}>
-        {running ? "Tarama sürüyor" : "Google Maps'te tara"}
+        {running ? "Tarama sürüyor" : "Şimdi tara"}
       </button>
       <FormMessage state={state} />
     </form>

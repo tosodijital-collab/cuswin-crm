@@ -1,10 +1,14 @@
-import "server-only";
-import { getMemoryRepository } from "./memory-store";
+import { getBrowserSupabase, isSupabaseConfigured } from "@/lib/supabase/client";
+import { getDemoRepository } from "./memory-store";
 import type { CrmRepository } from "./repository";
+import { SupabaseRepository } from "./supabase-repository";
 
-/** Şimdilik bellek içi depo (DATA_MODE=demo|yerel). PostgreSQL aşamasında DATABASE_URL varsa gerçek depo döner. */
+let repo: CrmRepository | undefined;
+
+/** Supabase ayarlıysa gerçek depo (oturum + RLS), değilse tarayıcıda demo deposu. */
 export function getRepository(): CrmRepository {
-  return getMemoryRepository();
+  repo ??= isSupabaseConfigured() ? new SupabaseRepository(getBrowserSupabase()) : getDemoRepository();
+  return repo;
 }
 
 export type * from "./repository";

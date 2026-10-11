@@ -119,7 +119,7 @@ export type Appointment = {
 };
 
 export type CalendarSync = {
-  status: "eklendi" | "kaldirildi" | "hata" | "kapali";
+  status: "bekliyor" | "eklendi" | "kaldirildi" | "hata" | "kapali";
   at: string;
   error?: string;
 };

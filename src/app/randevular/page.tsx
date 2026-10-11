@@ -1,12 +1,16 @@
+"use client";
+
 import Link from "next/link";
 import { AppointmentControls, CalendarStatus } from "@/components/appointment-forms";
-import { EmptyState, PageTitle, Panel } from "@/components/ui";
+import { EmptyState, LoadState, PageTitle, Panel } from "@/components/ui";
+import { useData } from "@/lib/client/refresh";
 import { getRepository, type AppointmentView } from "@/lib/data";
 import { APPOINTMENT_STATUS_LABELS, MEETING_TYPE_LABELS } from "@/lib/domain/labels";
 import { formatDateTime, toDateStr, toTimeStr } from "@/lib/domain/time";
 
-export default async function AppointmentsPage() {
-  const all = await getRepository().listAppointments();
+export default function AppointmentsPage() {
+  const { data: all, error } = useData(() => getRepository().listAppointments());
+  if (!all) return <LoadState error={error} />;
   const now = new Date();
   const isPast = (v: AppointmentView) => new Date(v.appointment.startsAt) < now;
   const upcoming = all.filter((v) => v.appointment.status === "planlandi" && !isPast(v));
@@ -47,7 +51,7 @@ function List({ title, items, past, empty }: { title: string; items: Appointment
                 </p>
                 <p className="text-sm text-muted">{APPOINTMENT_STATUS_LABELS[a.status]}</p>
               </div>
-              <Link href={`/isletme/${b.id}`} className="font-medium hover:underline">
+              <Link href={`/isletme?id=${b.id}`} className="font-medium hover:underline">
                 {b.name}
               </Link>
               <p className="text-sm text-muted">

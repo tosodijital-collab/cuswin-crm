@@ -1,13 +1,10 @@
-"use server";
+// Form işlemleri (tarayıcıda). Girdi burada doğrulanır; yetki ve bütünlük veritabanında RLS ve kısıtlarla korunur.
 
-import { refresh } from "next/cache";
-import { redirect } from "next/navigation";
 import { z } from "zod";
+import { notifyDataChanged } from "@/lib/client/refresh";
 import { getRepository } from "@/lib/data";
 import { RuleError } from "@/lib/domain/rules";
 import { istanbulToUtc } from "@/lib/domain/time";
-import { syncAppointmentToCalendar } from "@/lib/integrations/google-calendar";
-import { startScan } from "@/lib/scan";
 import {
   CALL_STATUSES,
   CATEGORIES,
@@ -15,7 +12,7 @@ import {
   SALES_STAGES,
 } from "@/lib/domain/types";
 
-export type ActionState = { ok: boolean; message?: string };
+export type ActionState = { ok: boolean; message?: string; redirectTo?: string };
 
 const optionalText = (max: number) =>
   z
@@ -30,23 +27,23 @@ const optionalDate = z.union([dateStr, z.literal("")]).optional().transform((v) 
 const optionalTime = z.union([timeStr, z.literal("")]).optional().transform((v) => v || undefined);
 const id = z.string().min(1).max(64);
 
-/** Giriş ve yetki kontrolü backend aşamasında buraya eklenecek; her action bu fonksiyondan geçer. */
-async function guard() {}
-
 function fields(formData: FormData) {
   return Object.fromEntries([...formData.keys()].map((k) => [k, formData.get(k) ?? undefined]));
 }
 
+function failure(e: unknown): ActionState {
+  if (e instanceof z.ZodError) return { ok: false, message: e.issues[0]?.message ?? "Geçersiz giriş." };
+  if (e instanceof RuleError) return { ok: false, message: e.message };
+  return { ok: false, message: e instanceof Error ? e.message : "İşlem başarısız oldu." };
+}
+
 async function run(fn: () => Promise<string | void>): Promise<ActionState> {
-  await guard();
   try {
     const message = await fn();
-    refresh();
+    notifyDataChanged();
     return { ok: true, message: message || undefined };
   } catch (e) {
-    if (e instanceof z.ZodError) return { ok: false, message: e.issues[0]?.message ?? "Geçersiz giriş." };
-    if (e instanceof RuleError) return { ok: false, message: e.message };
-    throw e;
+    return failure(e);
   }
 }
 
@@ -109,7 +106,6 @@ const businessSchema = z.object({
 });
 
 export async function saveBusinessAction(_: ActionState, formData: FormData): Promise<ActionState> {
-  await guard();
   let target: string;
   try {
     const existingId = formData.get("id");
@@ -130,11 +126,10 @@ export async function saveBusinessAction(_: ActionState, formData: FormData): Pr
       target = await repo.createBusiness(input);
     }
   } catch (e) {
-    if (e instanceof z.ZodError) return { ok: false, message: e.issues[0]?.message ?? "Geçersiz giriş." };
-    if (e instanceof RuleError) return { ok: false, message: e.message };
-    throw e;
+    return failure(e);
   }
-  redirect(`/isletme/${target}`);
+  notifyDataChanged();
+  return { ok: true, message: "Kaydedildi.", redirectTo: `/isletme?id=${target}` };
 }
 
 const appointmentSchema = z.object({
@@ -152,30 +147,13 @@ function appointmentInput(formData: FormData) {
   return { ...rest, startsAt: istanbulToUtc(date, time).toISOString() };
 }
 
-/** Randevuyu Google Takvim ile eşitler ve sonucu kullanıcıya okunur metin olarak döner. */
-async function syncCalendar(appointmentId: string): Promise<string> {
-  const repo = getRepository();
-  const view = await repo.getAppointment(appointmentId);
-  if (!view) return "";
-  const sync = await syncAppointmentToCalendar(view.appointment, view.business);
-  await repo.setCalendarSync(appointmentId, sync);
-  switch (sync.status) {
-    case "eklendi":
-      return " Google Takvim'e yazıldı.";
-    case "kaldirildi":
-      return " Google Takvim'den kaldırıldı.";
-    case "hata":
-      return ` Google Takvim'e yazılamadı: ${sync.error}`;
-    case "kapali":
-      return "";
-  }
-}
+const CALENDAR_NOTE = " Google Takvim bağlıysa birkaç dakika içinde takvime yansır.";
 
 export async function createAppointmentAction(_: ActionState, formData: FormData): Promise<ActionState> {
   return run(async () => {
     const businessId = id.parse(formData.get("businessId"));
-    const appointmentId = await getRepository().createAppointment(businessId, appointmentInput(formData));
-    return "Randevu kaydedildi." + (await syncCalendar(appointmentId));
+    await getRepository().createAppointment(businessId, appointmentInput(formData));
+    return "Randevu kaydedildi." + CALENDAR_NOTE;
   });
 }
 
@@ -183,7 +161,7 @@ export async function updateAppointmentAction(_: ActionState, formData: FormData
   return run(async () => {
     const appointmentId = id.parse(formData.get("appointmentId"));
     await getRepository().updateAppointment(appointmentId, appointmentInput(formData));
-    return "Randevu güncellendi. Hatırlatma yeni saate göre ayarlandı." + (await syncCalendar(appointmentId));
+    return "Randevu güncellendi. Hatırlatma yeni saate göre ayarlandı." + CALENDAR_NOTE;
   });
 }
 
@@ -191,14 +169,15 @@ export async function cancelAppointmentAction(_: ActionState, formData: FormData
   return run(async () => {
     const appointmentId = id.parse(formData.get("appointmentId"));
     await getRepository().cancelAppointment(appointmentId);
-    return "Randevu iptal edildi. Hatırlatma gönderilmeyecek." + (await syncCalendar(appointmentId));
+    return "Randevu iptal edildi. Hatırlatma gönderilmeyecek." + CALENDAR_NOTE;
   });
 }
 
 export async function retryCalendarAction(_: ActionState, formData: FormData): Promise<ActionState> {
   return run(async () => {
     const appointmentId = id.parse(formData.get("appointmentId"));
-    return (await syncCalendar(appointmentId)).trim() || "Google Takvim bağlı değil.";
+    await getRepository().queueCalendarSync(appointmentId);
+    return "Yeniden denenecek; birkaç dakika içinde takvime yansır.";
   });
 }
 
@@ -242,8 +221,11 @@ export async function runDailyListAction(): Promise<ActionState> {
 }
 
 export async function startScanAction(): Promise<ActionState> {
-  await guard();
-  const res = await startScan();
-  refresh();
-  return { ok: res.started, message: res.message };
+  try {
+    const res = await getRepository().requestScan();
+    notifyDataChanged();
+    return { ok: res.queued, message: res.message };
+  } catch (e) {
+    return failure(e);
+  }
 }

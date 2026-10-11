@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useActionState, useCallback, useState } from "react";
-import { recordCallAction, type ActionState } from "@/app/actions";
+import { recordCallAction, type ActionState } from "@/lib/actions";
 import { formatPhone, telHref } from "@/lib/domain/contact-info";
 import { CALL_STATUS_LABELS, CATEGORY_LABELS } from "@/lib/domain/labels";
 import { MAX_FAILED_STREAK } from "@/lib/domain/rules";
@@ -30,7 +30,7 @@ export function CallRow({ row, today, tone }: { row: CallRowData; today: string;
     <li className="border-b border-line last:border-b-0">
       <div className="flex flex-col gap-3 px-4 py-3.5 sm:flex-row sm:items-center">
         <div className="min-w-0 flex-1">
-          <Link href={`/isletme/${b.id}`} className="block truncate text-[16px] font-medium hover:underline">
+          <Link href={`/isletme?id=${b.id}`} className="block truncate text-[16px] font-medium hover:underline">
             {b.name}
           </Link>
           <p className="mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5 text-sm text-muted">
