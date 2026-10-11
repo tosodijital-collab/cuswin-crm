@@ -15,20 +15,17 @@ export function CallOutcomeForm({
   today,
   onDone,
   autoFocus,
-  appointment,
 }: {
   businessId: string;
   currentStage: SalesStage;
   today: string;
   onDone?: () => void;
   autoFocus?: boolean;
-  /** "Randevu aldım": sonuç ve aşama hazır seçili gelir, randevu alanları açılır. */
-  appointment?: boolean;
 }) {
   const [state, action, pending] = useActionState<ActionState, FormData>(recordCallAction, { ok: false });
-  const [result, setResult] = useState<CallStatus | "">(appointment ? "gorusuldu" : "");
-  const [stage, setStage] = useState<SalesStage | "">(appointment && currentStage !== "randevu_alindi" ? "randevu_alindi" : "");
-  const withAppointment = stage === "randevu_alindi" || (appointment && currentStage === "randevu_alindi");
+  const [result, setResult] = useState<CallStatus | "">("");
+  const [stage, setStage] = useState<SalesStage | "">("");
+  const withAppointment = stage === "randevu_alindi";
   const uid = useId();
 
   useEffect(() => {
@@ -158,5 +155,102 @@ export function CallOutcomeForm({
         <FormMessage state={state} />
       </div>
     </form>
+  );
+}
+
+/** "Randevu aldım": doğrudan tarih ve saat. Sonuç "Görüşüldü", aşama "Randevu alındı" olarak kaydedilir. */
+export function AppointmentQuickForm({
+  businessId,
+  currentStage,
+  today,
+  onDone,
+}: {
+  businessId: string;
+  currentStage: SalesStage;
+  today: string;
+  onDone?: () => void;
+}) {
+  const [state, action, pending] = useActionState<ActionState, FormData>(recordCallAction, { ok: false });
+  const uid = useId();
+  useEffect(() => {
+    if (state.ok) onDone?.();
+  }, [state, onDone]);
+
+  return (
+    <form action={action} className="grid gap-3">
+      <input type="hidden" name="businessId" value={businessId} />
+      <input type="hidden" name="result" value="gorusuldu" />
+      {currentStage !== "randevu_alindi" && <input type="hidden" name="stage" value="randevu_alindi" />}
+      <input type="hidden" name="withAppointment" value="1" />
+      <div className="grid grid-cols-[1fr_8rem] gap-2">
+        <div>
+          <FieldLabel htmlFor={`${uid}-adate`}>Randevu tarihi</FieldLabel>
+          <input id={`${uid}-adate`} type="date" name="apptDate" min={today} required autoFocus className={inputClass} />
+        </div>
+        <div>
+          <FieldLabel htmlFor={`${uid}-atime`}>Saat</FieldLabel>
+          <input id={`${uid}-atime`} type="time" name="apptTime" required className={inputClass} />
+        </div>
+      </div>
+      <details className="rounded-md border border-line bg-surface px-3 py-2">
+        <summary className="cursor-pointer text-[15px] text-muted">Ayrıntı ekle (isteğe bağlı)</summary>
+        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          <div>
+            <FieldLabel htmlFor={`${uid}-atype`}>Görüşme türü</FieldLabel>
+            <select id={`${uid}-atype`} name="apptMeetingType" defaultValue="yuz_yuze" className={inputClass}>
+              {MEETING_TYPES.map((t) => (
+                <option key={t} value={t}>
+                  {MEETING_TYPE_LABELS[t]}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <FieldLabel htmlFor={`${uid}-acontact`}>Görüşülecek kişi</FieldLabel>
+            <input id={`${uid}-acontact`} name="apptContact" maxLength={120} className={inputClass} />
+          </div>
+          <div className="sm:col-span-2">
+            <FieldLabel htmlFor={`${uid}-aloc`}>Bağlantı veya adres</FieldLabel>
+            <input id={`${uid}-aloc`} name="apptLocation" maxLength={400} className={inputClass} />
+          </div>
+          <div className="sm:col-span-2">
+            <FieldLabel htmlFor={`${uid}-anote`}>Not</FieldLabel>
+            <textarea id={`${uid}-anote`} name="note" rows={2} maxLength={2000} className={inputClass} />
+          </div>
+        </div>
+      </details>
+      <div className="flex flex-wrap items-center gap-3">
+        <button type="submit" disabled={pending} className={buttonClass.primary}>
+          {pending ? "Kaydediliyor" : "Randevuyu kaydet"}
+        </button>
+        {onDone && (
+          <button type="button" onClick={onDone} className="text-[15px] text-muted hover:text-ink">
+            Vazgeç
+          </button>
+        )}
+        <FormMessage state={state} />
+      </div>
+    </form>
+  );
+}
+
+/** İşletme sayfası için: "Randevu aldım" düğmesi, dokununca tarih/saat formu açılır. */
+export function AppointmentQuickToggle(props: { businessId: string; currentStage: SalesStage; today: string }) {
+  const [open, setOpen] = useState(false);
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="min-h-11 rounded-md border border-meet/40 px-4 text-[15px] font-medium text-meet hover:bg-meet-soft"
+      >
+        Randevu aldım
+      </button>
+    );
+  }
+  return (
+    <div className="rounded-md border border-meet/30 bg-meet-soft/40 p-3">
+      <AppointmentQuickForm {...props} onDone={() => setOpen(false)} />
+    </div>
   );
 }

@@ -7,7 +7,7 @@ import { formatPhone, telHref } from "@/lib/domain/contact-info";
 import { CALL_STATUS_LABELS, CATEGORY_LABELS } from "@/lib/domain/labels";
 import { MAX_FAILED_STREAK } from "@/lib/domain/rules";
 import type { Activity, Business, CallTask } from "@/lib/domain/types";
-import { CallOutcomeForm } from "./call-outcome-form";
+import { AppointmentQuickForm, CallOutcomeForm } from "./call-outcome-form";
 import { FormMessage } from "./ui";
 
 export type CallRowData = {
@@ -94,15 +94,11 @@ export function CallRow({ row, today, tone }: { row: CallRowData; today: string;
       )}
       {open && (
         <div className="border-t border-dashed border-line bg-paper/60 px-4 py-4">
-          <CallOutcomeForm
-            key={open}
-            businessId={b.id}
-            currentStage={b.salesStage}
-            today={today}
-            onDone={close}
-            autoFocus
-            appointment={open === "randevu"}
-          />
+          {open === "randevu" ? (
+            <AppointmentQuickForm businessId={b.id} currentStage={b.salesStage} today={today} onDone={close} />
+          ) : (
+            <CallOutcomeForm businessId={b.id} currentStage={b.salesStage} today={today} onDone={close} autoFocus />
+          )}
         </div>
       )}
     </li>

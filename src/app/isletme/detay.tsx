@@ -4,7 +4,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { AppointmentControls, CalendarStatus, NewAppointmentToggle } from "@/components/appointment-forms";
 import { NoteForm, StageForm, VoidActivityButton } from "@/components/business-forms";
-import { CallOutcomeForm } from "@/components/call-outcome-form";
+import { AppointmentQuickToggle, CallOutcomeForm } from "@/components/call-outcome-form";
 import { CallStatusBadge, EmptyState, LoadState, Panel, StageBadge } from "@/components/ui";
 import { useData } from "@/lib/client/refresh";
 import { getRepository } from "@/lib/data";
@@ -67,6 +67,9 @@ export function BusinessDetailScreen({ id }: { id: string }) {
                 : "Açık arama görevi yok."}
               {b.failedStreak > 0 && ` Ardışık ulaşılamama: ${b.failedStreak}/${MAX_FAILED_STREAK}.`}
             </p>
+            <div className="mb-4">
+              <AppointmentQuickToggle businessId={b.id} currentStage={b.salesStage} today={today} />
+            </div>
             <CallOutcomeForm businessId={b.id} currentStage={b.salesStage} today={today} />
           </Panel>
 

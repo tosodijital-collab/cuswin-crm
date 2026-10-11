@@ -9,7 +9,6 @@ import {
   decideCallOutcome,
   recomputeFailedStreak,
   RuleError,
-  selectDailyCandidates,
   type CallOutcomeInput,
 } from "@/lib/domain/rules";
 import { addDays, istanbulToUtc, toDateStr } from "@/lib/domain/time";
@@ -461,31 +460,8 @@ export class SupabaseRepository implements CrmRepository {
   }
 
   async runDailyList(trigger: DailyRun["trigger"]): Promise<DailyRunResult> {
-    const today = toDateStr(new Date());
-    const settings = await this.getSettings();
-    const [businessRows, taskRows, callRows] = await Promise.all([
-      this.q(this.db.from("businesses").select("*").eq("call_status", "aranacak").eq("sales_stage", "yeni_aday").is("review_reason", null)),
-      this.q(this.db.from("call_tasks").select("business_id, status, kind").or("status.eq.acik,kind.eq.yeni")),
-      this.q(this.db.from("activities").select("business_id").eq("type", "arama")),
-    ]);
-    const tasks = taskRows as Row[];
-    const open = new Set(tasks.filter((t) => t.status === "acik").map((t) => String(t.business_id)));
-    const listedEver = tasks.filter((t) => t.kind === "yeni").map((t) => String(t.business_id));
-    const called = (callRows as Row[]).map((r) => String(r.business_id));
-    const { selected, shortfallReason } = selectDailyCandidates(
-      (businessRows as Row[]).map(toBusiness),
-      { settings, businessIdsWithOpenTask: open, businessIdsWithCallHistory: new Set([...called, ...listedEver]) },
-      settings.dailyTarget,
-    );
-    const res = (await this.q(
-      this.db.rpc("create_daily_list", {
-        p_date: today,
-        p_trigger: trigger,
-        p_target: settings.dailyTarget,
-        p_business_ids: selected.map((b) => b.id),
-        p_shortfall: shortfallReason ?? null,
-      }),
-    )) as { created: boolean; added: number; run: Row };
+    // Seçim veritabanında yapılır (run_daily_list); tick, GitHub işi ve arayüz aynı kuralı kullanır.
+    const res = (await this.q(this.db.rpc("run_daily_list", { p_trigger: trigger }))) as { created: boolean; added: number; run: Row };
     return { created: res.created, added: res.added, run: toRun(res.run) };
   }
 

@@ -1,29 +1,26 @@
-name: Zamanlanmış işler
+name: Google Maps taraması
 
+# Supabase'deki dakikalık "tick" fonksiyonu her sabah 08.00'de ve "Şimdi tara" isteğinde bu işi tetikler
+# (GitHub'ın kendi zamanlayıcısı güvenilir çalışmadığı için kullanılmıyor). Elle de çalıştırılabilir.
 on:
-  schedule:
-    - cron: "0 5 * * *" # 08:00 Türkiye: Google Maps taraması + günün arama listesi
-    - cron: "*/5 * * * *" # hatırlatmalar, takvim, "şimdi tara" istekleri, kaçırılan liste telafisi
   workflow_dispatch:
     inputs:
       task:
         description: Çalıştırılacak görev
         required: true
-        default: frequent
+        default: daily
         type: choice
-        options: [daily, frequent]
+        options: [daily]
 
 permissions:
   contents: read
-  actions: write # zamanlamayı canlı tutmak için
 
 concurrency:
-  group: crm-jobs
+  group: crm-scan
   cancel-in-progress: false
 
 jobs:
   run:
-    # Gizli anahtar eklenip JOBS_ENABLED=true yapılana kadar çalışmaz
     if: ${{ vars.JOBS_ENABLED == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -34,30 +31,10 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - name: Görevi seç
-        id: task
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "task=${{ inputs.task }}" >> "$GITHUB_OUTPUT"
-          elif [ "${{ github.event.schedule }}" = "0 5 * * *" ]; then
-            echo "task=daily" >> "$GITHUB_OUTPUT"
-          else
-            echo "task=frequent" >> "$GITHUB_OUTPUT"
-          fi
-      - name: Çalıştır
-        run: npx tsx jobs/run.ts "${{ steps.task.outputs.task }}"
+      - name: Tarama ve günün listesi
+        run: npx tsx jobs/run.ts daily
         env:
           SUPABASE_URL: ${{ vars.SUPABASE_URL }}
           SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
-          APP_URL: ${{ vars.APP_URL }}
           GMAPS_SCRAPER_IMAGE: gosom/google-maps-scraper:v1.18.1
           GMAPS_SCRAPER_WORKDIR: ${{ runner.temp }}/scraper
-          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
-          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
-          GOOGLE_CALENDAR_ID: ${{ secrets.GOOGLE_CALENDAR_ID }}
-      - name: Zamanlamayı canlı tut
-        # Açık depolarda 60 gün commit olmazsa GitHub zamanlanmış işleri kapatır; günlük görev yeniden etkinleştirir.
-        if: steps.task.outputs.task == 'daily'
-        run: gh api -X PUT "repos/${{ github.repository }}/actions/workflows/jobs.yml/enable"
-        env:
-          GH_TOKEN: ${{ github.token }}

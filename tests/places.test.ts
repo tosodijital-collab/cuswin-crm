@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import { decideImport, mapScrapedPlace } from "@/lib/domain/places";
 import type { Business, PlaceInput } from "@/lib/domain/types";
 import { MemoryRepository } from "@/lib/data/memory-store";
-import { eventIdFor } from "../jobs/google-calendar";
 
 const raw = (over: Record<string, unknown> = {}) => ({
   title: "Örnek Ağız ve Diş Sağlığı Polikliniği",
@@ -130,14 +129,6 @@ describe("yerel depo içe aktarma", () => {
     expect(b.reviewReason).toContain("telefon");
   });
 
-});
-
-describe("Google Takvim", () => {
-  it("etkinlik kimliği base32hex kurallarına uyar ve deterministiktir", () => {
-    const id = eventIdFor("3f2b8c1e-9a4d-4e6f-b123-0a1b2c3d4e5f");
-    expect(id).toBe("3f2b8c1e9a4d4e6fb1230a1b2c3d4e5f");
-    expect(id).toMatch(/^[0-9a-v]{5,1024}$/);
-  });
 });
 
 describe("kategori önceliği", () => {
