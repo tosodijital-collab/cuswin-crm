@@ -23,8 +23,8 @@ concurrency:
 
 jobs:
   run:
-    # Supabase bağlanmadan çalışmaz
-    if: ${{ vars.SUPABASE_URL != '' }}
+    # Gizli anahtar eklenip JOBS_ENABLED=true yapılana kadar çalışmaz
+    if: ${{ vars.JOBS_ENABLED == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:

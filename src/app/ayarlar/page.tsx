@@ -1,7 +1,8 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { RunNowButton, ScanButton, SettingsForm } from "@/components/settings-forms";
+import { PasswordForm, RunNowButton, ScanButton, SettingsForm } from "@/components/settings-forms";
+import { isSupabaseConfigured } from "@/lib/supabase/client";
 import { EmptyState, LoadState, PageTitle, Panel } from "@/components/ui";
 import { useData } from "@/lib/client/refresh";
 import { getRepository } from "@/lib/data";
@@ -112,7 +113,7 @@ export default function SettingsPage() {
 
       <Block title="Bildirimler">
         <p className="text-[15px]">
-          Kanal: ntfy (telefon bildirimi).{" "}
+          Kanal: ntfy (telefon bildirimi). Telefonuna ntfy uygulamasını kurup sana verilen gizli konuya abone ol.{" "}
           {settings.notificationsConfigured ? (
             <span className="text-call">Bağlı.</span>
           ) : (
@@ -121,6 +122,11 @@ export default function SettingsPage() {
         </p>
       </Block>
 
+      {isSupabaseConfigured() && (
+        <Block title="Hesap">
+          <PasswordForm />
+        </Block>
+      )}
     </div>
   );
 }

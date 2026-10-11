@@ -2,6 +2,7 @@
 
 import { useActionState, useEffect } from "react";
 import { notifyDataChanged } from "@/lib/client/refresh";
+import { getBrowserSupabase, isSupabaseConfigured } from "@/lib/supabase/client";
 import { runDailyListAction, saveSettingsAction, startScanAction, type ActionState } from "@/lib/actions";
 import { ANKARA_DISTRICTS, CATEGORY_LABELS } from "@/lib/domain/labels";
 import { CATEGORIES, type Settings } from "@/lib/domain/types";
@@ -86,6 +87,39 @@ export function ScanButton({ running, disabled }: { running: boolean; disabled: 
         {running ? "Tarama sürüyor" : "Şimdi tara"}
       </button>
       <FormMessage state={state} />
+    </form>
+  );
+}
+
+const MIN_PASSWORD = 12;
+
+export function PasswordForm() {
+  const [state, action, pending] = useActionState<ActionState, FormData>(async (_, formData) => {
+    if (!isSupabaseConfigured()) return { ok: false, message: "Demo modunda şifre yok." };
+    const password = String(formData.get("password") ?? "");
+    const repeat = String(formData.get("repeat") ?? "");
+    if (password.length < MIN_PASSWORD) return { ok: false, message: `Şifre en az ${MIN_PASSWORD} karakter olmalı.` };
+    if (password !== repeat) return { ok: false, message: "Şifreler aynı değil." };
+    const { error } = await getBrowserSupabase().auth.updateUser({ password });
+    if (error) return { ok: false, message: `Şifre değiştirilemedi: ${error.message}` };
+    return { ok: true, message: "Şifre değiştirildi." };
+  }, initial);
+  return (
+    <form action={action} className="grid max-w-md gap-3">
+      <div>
+        <FieldLabel htmlFor="password">Yeni şifre (en az {MIN_PASSWORD} karakter)</FieldLabel>
+        <input id="password" name="password" type="password" autoComplete="new-password" required minLength={MIN_PASSWORD} className={inputClass} />
+      </div>
+      <div>
+        <FieldLabel htmlFor="repeat">Yeni şifre tekrar</FieldLabel>
+        <input id="repeat" name="repeat" type="password" autoComplete="new-password" required minLength={MIN_PASSWORD} className={inputClass} />
+      </div>
+      <div className="flex items-center gap-3">
+        <button type="submit" disabled={pending} className={buttonClass.secondary}>
+          Şifreyi değiştir
+        </button>
+        <FormMessage state={state} />
+      </div>
     </form>
   );
 }
