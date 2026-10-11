@@ -1,6 +1,7 @@
 // Form işlemleri (tarayıcıda). Girdi burada doğrulanır; yetki ve bütünlük veritabanında RLS ve kısıtlarla korunur.
 
 import { z } from "zod";
+import { syncCalendarNow } from "@/lib/calendar-now";
 import { notifyDataChanged } from "@/lib/client/refresh";
 import { getRepository } from "@/lib/data";
 import { RuleError } from "@/lib/domain/rules";
@@ -26,7 +27,6 @@ const timeStr = z.string().regex(/^\d{2}:\d{2}$/, "Geçersiz saat.");
 const optionalDate = z.union([dateStr, z.literal("")]).optional().transform((v) => v || undefined);
 const optionalTime = z.union([timeStr, z.literal("")]).optional().transform((v) => v || undefined);
 const id = z.string().min(1).max(64);
-const CALENDAR_NOTE = " Google Takvim bağlıysa birkaç dakika içinde takvime yansır.";
 
 function fields(formData: FormData) {
   return Object.fromEntries([...formData.keys()].map((k) => [k, formData.get(k) ?? undefined]));
@@ -77,7 +77,7 @@ export async function recordCallAction(_: ActionState, formData: FormData): Prom
     await repo.recordCall(businessId, input);
     if (!appt || !startsAt) return "Kaydedildi.";
     const { reminderMinutes } = await repo.getSettings();
-    await repo.createAppointment(businessId, {
+    const appointmentId = await repo.createAppointment(businessId, {
       startsAt: startsAt.toISOString(),
       contactName: appt.apptContact,
       meetingType: appt.apptMeetingType,
@@ -85,7 +85,7 @@ export async function recordCallAction(_: ActionState, formData: FormData): Prom
       note: input.note,
       reminderMinutes,
     });
-    return "Kaydedildi, randevu oluşturuldu." + CALENDAR_NOTE;
+    return "Kaydedildi, randevu oluşturuldu." + (await syncCalendarNow(appointmentId));
   });
 }
 
@@ -175,8 +175,8 @@ function appointmentInput(formData: FormData) {
 export async function createAppointmentAction(_: ActionState, formData: FormData): Promise<ActionState> {
   return run(async () => {
     const businessId = id.parse(formData.get("businessId"));
-    await getRepository().createAppointment(businessId, appointmentInput(formData));
-    return "Randevu kaydedildi." + CALENDAR_NOTE;
+    const appointmentId = await getRepository().createAppointment(businessId, appointmentInput(formData));
+    return "Randevu kaydedildi." + (await syncCalendarNow(appointmentId));
   });
 }
 
@@ -184,7 +184,7 @@ export async function updateAppointmentAction(_: ActionState, formData: FormData
   return run(async () => {
     const appointmentId = id.parse(formData.get("appointmentId"));
     await getRepository().updateAppointment(appointmentId, appointmentInput(formData));
-    return "Randevu güncellendi. Hatırlatma yeni saate göre ayarlandı." + CALENDAR_NOTE;
+    return "Randevu güncellendi. Hatırlatma yeni saate göre ayarlandı." + (await syncCalendarNow(appointmentId));
   });
 }
 
@@ -192,7 +192,7 @@ export async function cancelAppointmentAction(_: ActionState, formData: FormData
   return run(async () => {
     const appointmentId = id.parse(formData.get("appointmentId"));
     await getRepository().cancelAppointment(appointmentId);
-    return "Randevu iptal edildi. Hatırlatma gönderilmeyecek." + CALENDAR_NOTE;
+    return "Randevu iptal edildi. Hatırlatma gönderilmeyecek." + (await syncCalendarNow(appointmentId));
   });
 }
 
@@ -200,7 +200,7 @@ export async function retryCalendarAction(_: ActionState, formData: FormData): P
   return run(async () => {
     const appointmentId = id.parse(formData.get("appointmentId"));
     await getRepository().queueCalendarSync(appointmentId);
-    return "Yeniden denenecek; birkaç dakika içinde takvime yansır.";
+    return (await syncCalendarNow(appointmentId)).trim() || "Yeniden denenecek; birkaç dakika içinde takvime yansır.";
   });
 }
 

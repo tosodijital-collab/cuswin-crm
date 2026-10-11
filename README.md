@@ -12,6 +12,8 @@ Gereksinimler: `docs/GEREKSINIMLER.md` · Plan ve kararlar: `docs/PLAN.md`.
   - her sabah 08.00: Google Maps taraması (gosom/google-maps-scraper Docker) + günün arama listesi
   - 5 dakikada bir: kaçırılan liste telafisi, "şimdi tara" istekleri, ntfy hatırlatmaları, Google Takvim eşitleme
 - **Bildirim:** ntfy.sh (telefon uygulaması, gizli konu adı).
+- **Takvime anında yazma:** Supabase Edge Function `supabase/functions/calendar-sync` (oturum + RLS ile yetki);
+  başarısız olursa 5 dakikalık iş yedek olarak dener. Yükleme: `supabase functions deploy calendar-sync --no-verify-jwt --use-api`.
 
 Supabase ayarlı değilken arayüz tarayıcıda **demo** verisiyle çalışır.
 
