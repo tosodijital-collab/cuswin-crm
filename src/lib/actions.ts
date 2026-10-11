@@ -26,6 +26,7 @@ const timeStr = z.string().regex(/^\d{2}:\d{2}$/, "Geçersiz saat.");
 const optionalDate = z.union([dateStr, z.literal("")]).optional().transform((v) => v || undefined);
 const optionalTime = z.union([timeStr, z.literal("")]).optional().transform((v) => v || undefined);
 const id = z.string().min(1).max(64);
+const CALENDAR_NOTE = " Google Takvim bağlıysa birkaç dakika içinde takvime yansır.";
 
 function fields(formData: FormData) {
   return Object.fromEntries([...formData.keys()].map((k) => [k, formData.get(k) ?? undefined]));
@@ -56,11 +57,35 @@ const callSchema = z.object({
   nextTime: optionalTime,
 });
 
+const callAppointmentSchema = z.object({
+  apptDate: dateStr,
+  apptTime: timeStr,
+  apptMeetingType: z.enum(MEETING_TYPES, "Görüşme türü seçin."),
+  apptContact: optionalText(120),
+  apptLocation: optionalText(400),
+});
+
+/** Arama sonucunu kaydeder; "Randevu aldım" seçildiyse aynı adımda randevuyu da oluşturur. */
 export async function recordCallAction(_: ActionState, formData: FormData): Promise<ActionState> {
   return run(async () => {
     const { businessId, ...input } = callSchema.parse(fields(formData));
-    await getRepository().recordCall(businessId, input);
-    return "Kaydedildi.";
+    const appt = formData.get("withAppointment") ? callAppointmentSchema.parse(fields(formData)) : undefined;
+    const startsAt = appt ? istanbulToUtc(appt.apptDate, appt.apptTime) : undefined;
+    if (startsAt && startsAt.getTime() < Date.now()) throw new RuleError("Randevu saati geçmişte olamaz.");
+
+    const repo = getRepository();
+    await repo.recordCall(businessId, input);
+    if (!appt || !startsAt) return "Kaydedildi.";
+    const { reminderMinutes } = await repo.getSettings();
+    await repo.createAppointment(businessId, {
+      startsAt: startsAt.toISOString(),
+      contactName: appt.apptContact,
+      meetingType: appt.apptMeetingType,
+      location: appt.apptLocation,
+      note: input.note,
+      reminderMinutes,
+    });
+    return "Kaydedildi, randevu oluşturuldu." + CALENDAR_NOTE;
   });
 }
 
@@ -146,8 +171,6 @@ function appointmentInput(formData: FormData) {
   const { date, time, ...rest } = appointmentSchema.parse(fields(formData));
   return { ...rest, startsAt: istanbulToUtc(date, time).toISOString() };
 }
-
-const CALENDAR_NOTE = " Google Takvim bağlıysa birkaç dakika içinde takvime yansır.";
 
 export async function createAppointmentAction(_: ActionState, formData: FormData): Promise<ActionState> {
   return run(async () => {

@@ -21,7 +21,7 @@ export type CallRowData = {
 
 export function CallRow({ row, today, tone }: { row: CallRowData; today: string; tone?: "late" }) {
   const { business: b } = row;
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState<false | "sonuc" | "randevu">(false);
   const close = useCallback(() => setOpen(false), []);
   const [quick, quickAction, quickPending] = useActionState<ActionState, FormData>(recordCallAction, { ok: false });
   const tel = telHref(b.phone);
@@ -45,17 +45,17 @@ export function CallRow({ row, today, tone }: { row: CallRowData; today: string;
             )}
           </p>
         </div>
-        <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
+        <div className="grid grid-cols-3 gap-2 sm:flex sm:items-center">
           {tel ? (
             <a
               href={tel}
-              className="col-span-2 inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-call px-3.5 text-[15px] font-semibold tabular-nums text-white hover:bg-call/90"
+              className="col-span-3 inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-call px-3.5 text-[15px] font-semibold tabular-nums text-white hover:bg-call/90"
             >
               <PhoneIcon />
               {formatPhone(b.phone)}
             </a>
           ) : (
-            <span className="col-span-2 text-sm text-stop">Telefon yok</span>
+            <span className="col-span-3 text-sm text-stop">Telefon yok</span>
           )}
           <form action={quickAction} className="contents">
             <input type="hidden" name="businessId" value={b.id} />
@@ -63,7 +63,7 @@ export function CallRow({ row, today, tone }: { row: CallRowData; today: string;
             <button
               type="submit"
               disabled={quickPending}
-              className="min-h-11 rounded-md border border-line px-3 text-[15px] hover:bg-late-soft hover:text-late disabled:opacity-50"
+              className="min-h-11 w-full rounded-md border border-line px-2 text-[15px] hover:bg-late-soft hover:text-late disabled:opacity-50"
               title="Ulaşılamadı olarak kaydet; yarın tekrar listeye gelir"
             >
               {CALL_STATUS_LABELS.ulasilamadi}
@@ -71,9 +71,17 @@ export function CallRow({ row, today, tone }: { row: CallRowData; today: string;
           </form>
           <button
             type="button"
-            onClick={() => setOpen((v) => !v)}
-            aria-expanded={open}
-            className="min-h-11 rounded-md border border-line px-3 text-[15px] font-medium hover:bg-paper aria-expanded:bg-paper"
+            onClick={() => setOpen((v) => (v === "randevu" ? false : "randevu"))}
+            aria-expanded={open === "randevu"}
+            className="min-h-11 rounded-md border border-meet/40 px-2 text-[15px] font-medium text-meet hover:bg-meet-soft aria-expanded:bg-meet-soft"
+          >
+            Randevu aldım
+          </button>
+          <button
+            type="button"
+            onClick={() => setOpen((v) => (v === "sonuc" ? false : "sonuc"))}
+            aria-expanded={open === "sonuc"}
+            className="min-h-11 rounded-md border border-line px-2 text-[15px] font-medium hover:bg-paper aria-expanded:bg-paper"
           >
             Sonuç gir
           </button>
@@ -86,7 +94,15 @@ export function CallRow({ row, today, tone }: { row: CallRowData; today: string;
       )}
       {open && (
         <div className="border-t border-dashed border-line bg-paper/60 px-4 py-4">
-          <CallOutcomeForm businessId={b.id} currentStage={b.salesStage} today={today} onDone={close} autoFocus />
+          <CallOutcomeForm
+            key={open}
+            businessId={b.id}
+            currentStage={b.salesStage}
+            today={today}
+            onDone={close}
+            autoFocus
+            appointment={open === "randevu"}
+          />
         </div>
       )}
     </li>
