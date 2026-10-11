@@ -1,0 +1,40 @@
+@import "tailwindcss";
+
+/* Arama defteri: soğuk kâğıt zemin, koyu lacivert mürekkep; renkler yalnızca anlam taşır. */
+@theme {
+  --color-paper: #eef1f3;
+  --color-surface: #ffffff;
+  --color-ink: #15202b;
+  --color-muted: #5a6672;
+  --color-line: #d5dbe0;
+  --color-call: #13714a;
+  --color-call-soft: #e3f2ea;
+  --color-late: #9a5b06;
+  --color-late-soft: #fbf0dc;
+  --color-stop: #a8261b;
+  --color-stop-soft: #fbe7e4;
+  --color-meet: #2f3fa8;
+  --color-meet-soft: #e6e9f8;
+  --font-sans: var(--font-onest), ui-sans-serif, system-ui, sans-serif;
+}
+
+:root {
+  color-scheme: light;
+}
+
+body {
+  background: var(--color-paper);
+  color: var(--color-ink);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-meet);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    animation: none !important;
+  }
+}

@@ -1,0 +1,158 @@
+import Link from "next/link";
+import type { ReactNode } from "react";
+import { CallRow, type CallRowData } from "@/components/call-row";
+import { RunNowButton } from "@/components/settings-forms";
+import { EmptyState, Panel } from "@/components/ui";
+import { getRepository, type TaskView } from "@/lib/data";
+import { CALL_STATUS_LABELS, MEETING_TYPE_LABELS } from "@/lib/domain/labels";
+import { formatLongDate, formatTime, relativeDay, toDateStr } from "@/lib/domain/time";
+
+export default async function HomePage() {
+  const home = await getRepository().getHome();
+  const { today, counts, run } = home;
+
+  const toRow = (v: TaskView, dueLabel?: string): CallRowData => ({
+    ...v,
+    dueLabel,
+    lastCallLabel: v.lastCall?.callResult
+      ? `Son arama: ${relativeDay(toDateStr(new Date(v.lastCall.at)), today)}, ${CALL_STATUS_LABELS[v.lastCall.callResult].toLocaleLowerCase("tr-TR")}`
+      : undefined,
+  });
+  const daysLate = (due: string) => {
+    const diff = Math.round((Date.parse(today) - Date.parse(due)) / 86_400_000);
+    return diff === 1 ? "1 gün gecikti" : `${diff} gün gecikti`;
+  };
+  const followUpCount = home.dundenKalanlar.length + home.gecikenler.length + home.planlananlar.length;
+
+  return (
+    <div>
+      <div className="mb-5">
+        <h1 className="text-2xl font-semibold tracking-tight">{formatLongDate(today)}</h1>
+        <p className="mt-1 text-[15px] text-muted">
+          {run
+            ? `Günün listesi ${formatTime(run.startedAt)} itibarıyla hazır, ${run.selected} yeni işletme.`
+            : "Günün listesi henüz hazırlanmadı. Her sabah 09.00'dan önce hazırlanır."}
+        </p>
+        {run?.shortfallReason && (
+          <p className="mt-2 rounded-md bg-late-soft px-3 py-2 text-sm text-late">{run.shortfallReason}</p>
+        )}
+        {(!run || run.selected < run.target) && (
+          <div className="mt-3">
+            <RunNowButton primary />
+          </div>
+        )}
+        {run?.error && <p className="mt-2 rounded-md bg-stop-soft px-3 py-2 text-sm text-stop">Hata: {run.error}</p>}
+      </div>
+
+      <dl className="mb-6 grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-line bg-line sm:grid-cols-5">
+        <Stat label="Kalan yeni aday" value={`${counts.newRemaining}/${counts.newTotal}`} />
+        <Stat label="Bugün yapılan arama" value={counts.callsToday} />
+        <Stat label="Bekleyen takip" value={counts.openFollowUps} />
+        <Stat label="Bugünkü randevu" value={counts.appointmentsToday} />
+        <Stat label="Kazanılan müşteri" value={counts.customers} />
+      </dl>
+
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
+        <div className="grid gap-6">
+          <Section title="Bugün aranacak yeni işletmeler" count={home.newTasks.length}>
+            {home.newTasks.length ? (
+              <ul>
+                {home.newTasks.map((v) => (
+                  <CallRow key={v.task.id} row={toRow(v)} today={today} />
+                ))}
+              </ul>
+            ) : (
+              <EmptyState>
+                {counts.newTotal
+                  ? "Bugünün yeni listesi tamamlandı."
+                  : "Bugün için yeni işletme yok. Ayarlar ekranından listeyi elle hazırlayabilirsiniz."}
+              </EmptyState>
+            )}
+          </Section>
+
+          <Section title="Takip aramaları" count={followUpCount}>
+            {followUpCount === 0 && <EmptyState>Bugün için bekleyen takip yok.</EmptyState>}
+            <Group title="Gecikenler" items={home.gecikenler}>
+              {(v) => <CallRow key={v.task.id} row={toRow(v, daysLate(v.task.dueDate))} today={today} tone="late" />}
+            </Group>
+            <Group title="Dünden kalanlar" items={home.dundenKalanlar}>
+              {(v) => <CallRow key={v.task.id} row={toRow(v)} today={today} />}
+            </Group>
+            <Group title="Bugüne planlananlar" items={home.planlananlar}>
+              {(v) => (
+                <CallRow key={v.task.id} row={toRow(v, v.task.dueTime ? `Saat ${v.task.dueTime}` : "Gün içinde")} today={today} />
+              )}
+            </Group>
+          </Section>
+        </div>
+
+        <Section title="Bugünkü randevular" count={home.appointmentsToday.length}>
+          {home.appointmentsToday.length ? (
+            <ul>
+              {home.appointmentsToday.map(({ appointment: a, business: b }) => (
+                <li key={a.id} className="border-b border-line px-4 py-3 last:border-b-0">
+                  <p className="text-lg font-semibold text-meet">{formatTime(a.startsAt)}</p>
+                  <Link href={`/isletme/${b.id}`} className="block font-medium hover:underline">
+                    {b.name}
+                  </Link>
+                  <p className="text-sm text-muted">
+                    {[a.contactName, MEETING_TYPE_LABELS[a.meetingType]].filter(Boolean).join(", ")}
+                  </p>
+                  {a.location && <p className="mt-0.5 break-words text-sm text-muted">{a.location}</p>}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <EmptyState>Bugün randevu yok.</EmptyState>
+          )}
+          <div className="border-t border-line px-4 py-2.5">
+            <Link href="/randevular" className="text-sm font-medium text-meet hover:underline">
+              Tüm randevular
+            </Link>
+          </div>
+        </Section>
+      </div>
+    </div>
+  );
+}
+
+function Stat({ label, value }: { label: string; value: ReactNode }) {
+  return (
+    <div className="bg-surface px-4 py-3 last:col-span-2 sm:last:col-span-1">
+      <dt className="text-sm text-muted">{label}</dt>
+      <dd className="text-xl font-semibold tabular-nums">{value}</dd>
+    </div>
+  );
+}
+
+function Section({ title, count, children }: { title: string; count: number; children: ReactNode }) {
+  return (
+    <Panel className="self-start overflow-hidden" aria-label={title}>
+      <h2 className="flex items-baseline justify-between border-b border-line px-4 py-3 text-[17px] font-semibold">
+        {title}
+        <span className="text-[15px] font-normal text-muted">{count}</span>
+      </h2>
+      {children}
+    </Panel>
+  );
+}
+
+function Group({
+  title,
+  items,
+  children,
+}: {
+  title: string;
+  items: TaskView[];
+  children: (v: TaskView) => ReactNode;
+}) {
+  if (items.length === 0) return null;
+  return (
+    <div>
+      <h3 className="border-b border-line bg-paper/70 px-4 py-1.5 text-sm font-medium text-muted">
+        {title} ({items.length})
+      </h3>
+      <ul>{items.map(children)}</ul>
+    </div>
+  );
+}
