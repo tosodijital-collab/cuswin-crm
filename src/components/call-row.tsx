@@ -28,7 +28,7 @@ export function CallRow({ row, today, tone }: { row: CallRowData; today: string;
 
   return (
     <li className="border-b border-line last:border-b-0">
-      <div className="flex flex-col gap-3 px-4 py-3.5 sm:flex-row sm:items-center">
+      <div className="flex flex-col gap-3 px-4 py-3.5 xl:flex-row xl:items-center">
         <div className="min-w-0 flex-1">
           <Link href={`/isletme?id=${b.id}`} className="block truncate text-[16px] font-medium hover:underline">
             {b.name}
@@ -45,11 +45,11 @@ export function CallRow({ row, today, tone }: { row: CallRowData; today: string;
             )}
           </p>
         </div>
-        <div className="grid grid-cols-3 gap-2 sm:flex sm:items-center">
+        <div className="grid grid-cols-3 gap-2 sm:flex sm:flex-wrap sm:items-center xl:shrink-0 xl:flex-nowrap">
           {tel ? (
             <a
               href={tel}
-              className="col-span-3 inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-call px-3.5 text-[15px] font-semibold tabular-nums text-white hover:bg-call/90"
+              className="col-span-3 inline-flex min-h-11 items-center justify-center gap-2 whitespace-nowrap rounded-md bg-call px-3.5 text-[15px] font-semibold tabular-nums text-white hover:bg-call/90"
             >
               <PhoneIcon />
               {formatPhone(b.phone)}
@@ -63,7 +63,7 @@ export function CallRow({ row, today, tone }: { row: CallRowData; today: string;
             <button
               type="submit"
               disabled={quickPending}
-              className="min-h-11 w-full rounded-md border border-line px-2 text-[15px] hover:bg-late-soft hover:text-late disabled:opacity-50"
+              className="min-h-11 w-full rounded-md leading-tight sm:whitespace-nowrap border border-line px-2 text-[15px] hover:bg-late-soft hover:text-late disabled:opacity-50 sm:w-auto sm:px-3"
               title="Ulaşılamadı olarak kaydet; yarın tekrar listeye gelir"
             >
               {CALL_STATUS_LABELS.ulasilamadi}
@@ -73,7 +73,7 @@ export function CallRow({ row, today, tone }: { row: CallRowData; today: string;
             type="button"
             onClick={() => setOpen((v) => (v === "randevu" ? false : "randevu"))}
             aria-expanded={open === "randevu"}
-            className="min-h-11 rounded-md border border-meet/40 px-2 text-[15px] font-medium text-meet hover:bg-meet-soft aria-expanded:bg-meet-soft"
+            className="min-h-11 rounded-md border border-meet/40 leading-tight sm:whitespace-nowrap px-2 text-[15px] font-medium text-meet hover:bg-meet-soft aria-expanded:bg-meet-soft sm:px-3"
           >
             Randevu aldım
           </button>
@@ -81,7 +81,7 @@ export function CallRow({ row, today, tone }: { row: CallRowData; today: string;
             type="button"
             onClick={() => setOpen((v) => (v === "sonuc" ? false : "sonuc"))}
             aria-expanded={open === "sonuc"}
-            className="min-h-11 rounded-md border border-line px-2 text-[15px] font-medium hover:bg-paper aria-expanded:bg-paper"
+            className="min-h-11 rounded-md border border-line px-2 text-[15px] font-medium leading-tight sm:whitespace-nowrap hover:bg-paper aria-expanded:bg-paper sm:px-3"
           >
             Sonuç gir
           </button>
