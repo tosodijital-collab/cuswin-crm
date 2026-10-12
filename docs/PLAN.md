@@ -3,9 +3,10 @@
 > **Güncel mimari (2026-10-12, kullanıcı kararı):** VPS kullanılmayacak. Arayüz GitHub Pages (açık depo, statik),
 > veri ve giriş Supabase (ücretsiz plan), zamanlanmış işler GitHub Actions, bildirim ntfy.sh. Aşağıdaki VPS/Docker
 > Compose maddeleri bu karar ile geçersizdir.
-> Bilinen ödünler: Actions zamanlaması 5–15 dk kayabilir (hatırlatmalar gecikebilir); Google, Actions IP'lerinden
-> taramayı daha kolay engelleyebilir; açık depoda 60 gün commit olmazsa zamanlama kapanır (günlük görev yeniden
-> etkinleştirir); ücretsiz Supabase 7 gün hareketsiz kalırsa uyur (5 dakikalık iş bunu engeller).
+> Güncelleme (2026-10-12 gece): GitHub zamanlayıcısı hiç tetiklenmediği için dakikalık işler Supabase pg_cron +
+> Edge Function `tick`'e taşındı (README). GitHub Actions yalnızca Docker gerektiren taramayı çalıştırır ve `tick` tarafından
+> tetiklenir. Ara verme (bugün/yarın/tarih/süresiz) eklendi. Bilinen ödün: Google, Actions IP'lerinden taramayı
+> engelleyebilir (şu ana kadar engel yok); ücretsiz Supabase 7 gün hareketsiz kalırsa uyur (dakikalık iş bunu engeller).
 
 ## Veri kaynağı
 - **Google Places API kalıcı CRM kaydı için uygun değil**: Google Maps Platform şartları içeriğin (ad, telefon, adres…)

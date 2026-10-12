@@ -5,21 +5,25 @@ sonuçlarını, takipleri ve tanıtım randevularını yöneten tek kullanıcıl
 Gereksinimler: `docs/GEREKSINIMLER.md` · Plan ve kararlar: `docs/PLAN.md`.
 
 ## Mimari (tamamen ücretsiz)
-- **Arayüz:** Next.js statik çıktı → **GitHub Pages** (`.github/workflows/deploy.yml`).
-- **Veri ve giriş:** **Supabase** (PostgreSQL + Auth). Kayıt kapalı; yalnızca `app_owner` tablosundaki kullanıcı
+- **Arayüz:** Next.js statik çıktı → **GitHub Pages**, https://doktor.tosoco.tr (`.github/workflows/deploy.yml`).
+- **Veri ve giriş:** **Supabase** (PostgreSQL + Auth, Frankfurt). Kayıt kapalı; yalnızca `app_owner` tablosundaki kullanıcı
   erişir (RLS). Şema: `supabase/migrations/`.
-- **Zamanlanmış işler:** **GitHub Actions** (`.github/workflows/jobs.yml`, `jobs/run.ts`)
-  - her sabah 08.00: Google Maps taraması (gosom/google-maps-scraper Docker) + günün arama listesi
-  - 5 dakikada bir: kaçırılan liste telafisi, "şimdi tara" istekleri, ntfy hatırlatmaları, Google Takvim eşitleme
+- **Dakikalık iş:** Supabase **pg_cron** her dakika Edge Function `tick`'i çağırır (`supabase/functions/tick`):
+  randevu hatırlatmaları (ntfy), Google Takvim yedek eşitleme, 08.30 günün listesi (`run_daily_list`),
+  08.00 tarama tetikleme ve "Şimdi tara" istekleri. Ara verilen günlerde liste ve tarama yapılmaz.
+- **Takvime anında yazma:** Edge Function `calendar-sync` (oturum + RLS ile yetki).
+- **Google Maps taraması:** GitHub Actions (`.github/workflows/jobs.yml`, `jobs/run.ts`), gosom/google-maps-scraper Docker;
+  `tick` tarafından tetiklenir (GitHub'ın kendi zamanlayıcısı güvenilir olmadığı için kullanılmaz).
 - **Bildirim:** ntfy.sh (telefon uygulaması, gizli konu adı).
-- **Takvime anında yazma:** Supabase Edge Function `supabase/functions/calendar-sync` (oturum + RLS ile yetki);
-  başarısız olursa 5 dakikalık iş yedek olarak dener. Yükleme: `supabase functions deploy calendar-sync --no-verify-jwt --use-api`.
 
 Supabase ayarlı değilken arayüz tarayıcıda **demo** verisiyle çalışır.
 
-## GitHub ayarları
-Repository variables: `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `APP_URL`, `BASE_PATH` (özel alan adı yoksa `/cuswin-crm`).
-Repository secrets: `SUPABASE_SECRET_KEY`, `NTFY_TOPIC`, isteğe bağlı `GOOGLE_SERVICE_ACCOUNT_JSON`, `GOOGLE_CALENDAR_ID`.
+## Ayarlar ve gizli değerler (değerler depoda yok)
+- GitHub variables: `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `APP_URL`, `JOBS_ENABLED`. Secret: `SUPABASE_SECRET_KEY`.
+- Supabase Edge Function secrets: `GOOGLE_SERVICE_ACCOUNT_B64`, `GOOGLE_CALENDAR_ID`, `NTFY_TOPIC`, `GITHUB_DISPATCH_TOKEN`
+  (yalnızca bu deponun Actions izni), `GITHUB_REPO`, `APP_URL`.
+- Supabase Vault: `cron_token` (pg_cron → tick yetkisi, otomatik üretildi).
+- Edge Function yükleme: `supabase functions deploy <ad> --project-ref zemljzbrpburfzkodjrp --no-verify-jwt --use-api`.
 
 ## Geliştirme
 ```bash
