@@ -22,6 +22,7 @@ import type {
   ImportResult,
   PlaceInput,
   SalesStage,
+  Pause,
   ScanRun,
   Settings,
 } from "@/lib/domain/types";
@@ -436,6 +437,10 @@ export class SupabaseRepository implements CrmRepository {
       districts: (r.districts as string[]) ?? [],
       reminderMinutes: Number(r.reminder_minutes ?? 30),
       scanLimit: Number(r.scan_limit ?? 20),
+      pause:
+        r.pause_forever || (r.paused_from && r.paused_until)
+          ? { from: str(r.paused_from), until: str(r.paused_until), forever: Boolean(r.pause_forever) }
+          : undefined,
       notificationsConfigured: integrations.notifications,
       calendarConfigured: integrations.calendar,
       scannerConfigured: integrations.scanner,
@@ -451,6 +456,15 @@ export class SupabaseRepository implements CrmRepository {
         reminder_minutes: input.reminderMinutes,
         scan_limit: input.scanLimit,
       }).eq("id", 1),
+    );
+  }
+
+  async setPause(pause: Pause | null): Promise<void> {
+    await this.q(
+      this.db
+        .from("settings")
+        .update({ paused_from: pause?.from ?? null, paused_until: pause?.until ?? null, pause_forever: pause?.forever ?? false })
+        .eq("id", 1),
     );
   }
 

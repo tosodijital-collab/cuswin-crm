@@ -3,17 +3,22 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { CallRow, type CallRowData } from "@/components/call-row";
+import { PauseControl } from "@/components/pause-control";
 import { RunNowButton } from "@/components/settings-forms";
 import { EmptyState, LoadState, Panel } from "@/components/ui";
 import { useData } from "@/lib/client/refresh";
 import { getRepository, type TaskView } from "@/lib/data";
 import { CALL_STATUS_LABELS, MEETING_TYPE_LABELS } from "@/lib/domain/labels";
+import { isPausedOn } from "@/lib/domain/rules";
 import { formatLongDate, formatTime, relativeDay, toDateStr } from "@/lib/domain/time";
 
 export default function HomePage() {
-  const { data: home, error } = useData(() => getRepository().getHome());
-  if (!home) return <LoadState error={error} />;
+  const repo = getRepository();
+  const { data, error } = useData(() => Promise.all([repo.getHome(), repo.getSettings()]));
+  if (!data) return <LoadState error={error} />;
+  const [home, settings] = data;
   const { today, counts, run } = home;
+  const pausedToday = isPausedOn(settings.pause, today);
 
   const toRow = (v: TaskView, dueLabel?: string): CallRowData => ({
     ...v,
@@ -35,7 +40,9 @@ export default function HomePage() {
         <p className="mt-1 text-[15px] text-muted">
           {run
             ? `Günün listesi ${formatTime(run.startedAt)} itibarıyla hazır, ${run.selected} yeni işletme.`
-            : "Günün listesi henüz hazırlanmadı. Her sabah 09.00'dan önce hazırlanır."}
+            : pausedToday
+              ? "Bugün ara verdin; otomatik liste hazırlanmadı."
+              : "Günün listesi henüz hazırlanmadı. Her sabah 08.30'da kendiliğinden hazırlanır."}
         </p>
         {run?.shortfallReason && (
           <p className="mt-2 rounded-md bg-late-soft px-3 py-2 text-sm text-late">{run.shortfallReason}</p>
@@ -46,14 +53,17 @@ export default function HomePage() {
           </div>
         )}
         {run?.error && <p className="mt-2 rounded-md bg-stop-soft px-3 py-2 text-sm text-stop">Hata: {run.error}</p>}
+        <div className="mt-3">
+          <PauseControl pause={settings.pause} today={today} compact />
+        </div>
       </div>
 
-      <dl className="mb-6 grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-line bg-line sm:grid-cols-5">
-        <Stat label="Kalan yeni aday" value={`${counts.newRemaining}/${counts.newTotal}`} />
-        <Stat label="Bugün yapılan arama" value={counts.callsToday} />
-        <Stat label="Bekleyen takip" value={counts.openFollowUps} />
-        <Stat label="Bugünkü randevu" value={counts.appointmentsToday} />
-        <Stat label="Kazanılan müşteri" value={counts.customers} />
+      <dl className="mb-6 grid grid-cols-5 gap-px overflow-hidden rounded-lg border border-line bg-line">
+        <Stat short="Yeni" label="Kalan yeni aday" value={`${counts.newRemaining}/${counts.newTotal}`} />
+        <Stat short="Arama" label="Bugün yapılan arama" value={counts.callsToday} />
+        <Stat short="Takip" label="Bekleyen takip" value={counts.openFollowUps} />
+        <Stat short="Randevu" label="Bugünkü randevu" value={counts.appointmentsToday} />
+        <Stat short="Müşteri" label="Kazanılan müşteri" value={counts.customers} />
       </dl>
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
@@ -90,7 +100,11 @@ export default function HomePage() {
           </Section>
         </div>
 
-        <Section title="Bugünkü randevular" count={home.appointmentsToday.length}>
+        <Section
+          title="Bugünkü randevular"
+          count={home.appointmentsToday.length}
+          className={home.appointmentsToday.length ? "order-first lg:order-none" : ""}
+        >
           {home.appointmentsToday.length ? (
             <ul>
               {home.appointmentsToday.map(({ appointment: a, business: b }) => (
@@ -120,18 +134,21 @@ export default function HomePage() {
   );
 }
 
-function Stat({ label, value }: { label: string; value: ReactNode }) {
+function Stat({ label, short, value }: { label: string; short: string; value: ReactNode }) {
   return (
-    <div className="bg-surface px-4 py-3 last:col-span-2 sm:last:col-span-1">
-      <dt className="text-sm text-muted">{label}</dt>
-      <dd className="text-xl font-semibold tabular-nums">{value}</dd>
+    <div className="bg-surface px-2 py-2.5 text-center sm:px-4 sm:py-3 sm:text-left">
+      <dt className="text-xs text-muted sm:text-sm">
+        <span className="sm:hidden">{short}</span>
+        <span className="hidden sm:inline">{label}</span>
+      </dt>
+      <dd className="text-lg font-semibold tabular-nums sm:text-xl">{value}</dd>
     </div>
   );
 }
 
-function Section({ title, count, children }: { title: string; count: number; children: ReactNode }) {
+function Section({ title, count, children, className = "" }: { title: string; count: number; children: ReactNode; className?: string }) {
   return (
-    <Panel className="self-start overflow-hidden" aria-label={title}>
+    <Panel className={`self-start overflow-hidden ${className}`} aria-label={title}>
       <h2 className="flex items-baseline justify-between border-b border-line px-4 py-3 text-[17px] font-semibold">
         {title}
         <span className="text-[15px] font-normal text-muted">{count}</span>

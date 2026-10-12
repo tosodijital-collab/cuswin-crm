@@ -8,6 +8,7 @@ import type {
   CallStatus,
   CallTask,
   DateStr,
+  Pause,
   SalesStage,
   Settings,
   TaskReason,
@@ -200,4 +201,11 @@ export function groupOpenTasks<T extends Pick<CallTask, "kind" | "reason" | "due
   groups.gecikenler.sort(byDue);
   groups.planlananlar.sort(byDue);
   return groups;
+}
+
+/** Ara verme o güne denk geliyor mu? */
+export function isPausedOn(pause: Pause | undefined, date: DateStr): boolean {
+  if (!pause) return false;
+  if (pause.forever) return true;
+  return Boolean(pause.from && pause.until && pause.from <= date && date <= pause.until);
 }

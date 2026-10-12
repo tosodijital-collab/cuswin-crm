@@ -5,7 +5,7 @@ import { syncCalendarNow } from "@/lib/calendar-now";
 import { notifyDataChanged } from "@/lib/client/refresh";
 import { getRepository } from "@/lib/data";
 import { RuleError } from "@/lib/domain/rules";
-import { istanbulToUtc } from "@/lib/domain/time";
+import { addDays, istanbulToUtc, toDateStr } from "@/lib/domain/time";
 import {
   CALL_STATUSES,
   CATEGORIES,
@@ -251,4 +251,38 @@ export async function startScanAction(): Promise<ActionState> {
   } catch (e) {
     return failure(e);
   }
+}
+
+/** Ara verme: bugün, yarın, tarih aralığı, süresiz ya da devam. */
+export async function setPauseAction(_: ActionState, formData: FormData): Promise<ActionState> {
+  return run(async () => {
+    const today = toDateStr(new Date());
+    const kind = z.enum(["bugun", "yarin", "aralik", "suresiz", "devam"]).parse(formData.get("kind"));
+    const repo = getRepository();
+    switch (kind) {
+      case "devam":
+        await repo.setPause(null);
+        return "Ara verme kaldırıldı. Sabah taraması ve günün listesi yeniden otomatik.";
+      case "suresiz":
+        await repo.setPause({ forever: true });
+        return "Süresiz ara verildi. Devam et diyene kadar otomatik liste ve tarama yok.";
+      case "bugun":
+        await repo.setPause({ from: today, until: today, forever: false });
+        return "Bugün için ara verildi.";
+      case "yarin": {
+        const t = addDays(today, 1);
+        await repo.setPause({ from: t, until: t, forever: false });
+        return "Yarın için ara verildi. Yarın sabah liste ve tarama olmayacak.";
+      }
+      case "aralik": {
+        const { from, until } = z
+          .object({ from: dateStr, until: dateStr })
+          .refine((v) => v.from <= v.until, "Bitiş tarihi başlangıçtan önce olamaz.")
+          .refine((v) => v.until >= today, "Geçmiş tarihlere ara verilemez.")
+          .parse(fields(formData));
+        await repo.setPause({ from, until, forever: false });
+        return "Seçilen günler için ara verildi.";
+      }
+    }
+  });
 }

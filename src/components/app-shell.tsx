@@ -4,6 +4,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import { getBrowserSupabase, isSupabaseConfigured } from "@/lib/supabase/client";
 import { MainNav } from "./main-nav";
+import { Toaster } from "./toast";
 
 type AuthState = "yukleniyor" | "giris" | "hazir" | "yetkisiz";
 
@@ -55,6 +56,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           <p className="text-[15px] text-muted">Yükleniyor</p>
         )}
       </main>
+      <Toaster />
     </>
   );
 }

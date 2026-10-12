@@ -4,6 +4,7 @@ import { useActionState, useEffect, useId, useState } from "react";
 import { recordCallAction, type ActionState } from "@/lib/actions";
 import { CALL_STATUS_LABELS, MEETING_TYPE_LABELS, SALES_STAGE_LABELS } from "@/lib/domain/labels";
 import { CALL_STATUSES, MEETING_TYPES, SALES_STAGES, type CallStatus, type SalesStage } from "@/lib/domain/types";
+import { showToast } from "./toast";
 import { buttonClass, FieldLabel, FormMessage, inputClass } from "./ui";
 
 const NEEDS_DATE: ReadonlySet<CallStatus> = new Set(["tekrar_aranacak"]);
@@ -29,7 +30,10 @@ export function CallOutcomeForm({
   const uid = useId();
 
   useEffect(() => {
-    if (state.ok) onDone?.();
+    if (state.ok && onDone) {
+      if (state.message) showToast(state.message);
+      onDone();
+    }
   }, [state, onDone]);
 
   return (
@@ -173,7 +177,10 @@ export function AppointmentQuickForm({
   const [state, action, pending] = useActionState<ActionState, FormData>(recordCallAction, { ok: false });
   const uid = useId();
   useEffect(() => {
-    if (state.ok) onDone?.();
+    if (state.ok && onDone) {
+      if (state.message) showToast(state.message);
+      onDone();
+    }
   }, [state, onDone]);
 
   return (

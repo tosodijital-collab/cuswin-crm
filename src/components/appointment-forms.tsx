@@ -11,6 +11,7 @@ import {
 } from "@/lib/actions";
 import { MEETING_TYPE_LABELS } from "@/lib/domain/labels";
 import { MEETING_TYPES, type Appointment } from "@/lib/domain/types";
+import { showToast } from "./toast";
 import { buttonClass, FieldLabel, FormMessage, inputClass } from "./ui";
 
 const initial: ActionState = { ok: false };
@@ -37,7 +38,10 @@ export function AppointmentForm({
   );
   const uid = useId();
   useEffect(() => {
-    if (state.ok) onDone?.();
+    if (state.ok && onDone) {
+      if (state.message) showToast(state.message);
+      onDone();
+    }
   }, [state, onDone]);
 
   return (

@@ -1,7 +1,9 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { PauseControl } from "@/components/pause-control";
 import { PasswordForm, RunNowButton, ScanButton, SettingsForm } from "@/components/settings-forms";
+import { toDateStr } from "@/lib/domain/time";
 import { isSupabaseConfigured } from "@/lib/supabase/client";
 import { EmptyState, LoadState, PageTitle, Panel } from "@/components/ui";
 import { useData } from "@/lib/client/refresh";
@@ -22,14 +24,18 @@ export default function SettingsPage() {
     <div className="grid gap-6">
       <PageTitle>Ayarlar</PageTitle>
 
+      <Block title="Ara verme">
+        <PauseControl pause={settings.pause} today={toDateStr(new Date())} />
+      </Block>
+
       <Block title="Günlük liste">
         <SettingsForm settings={settings} />
       </Block>
 
       <Block title="Otomasyon">
         <p className="mb-3 text-[15px] text-muted">
-          Liste her gün Türkiye saatiyle 09.00&apos;dan önce hazırlanır. Aynı gün tekrar çalışırsa yeni liste oluşturulmaz.
-          Sunucu kapalıyken kaçırılan gün, açılınca telafi edilir.
+          Her sabah 08.00&apos;de Google Maps taranır, 08.30&apos;da günün listesi hazırlanır. Aynı gün tekrar çalışırsa yeni
+          liste oluşturulmaz; kaçırılan saat gün içinde telafi edilir. Ara verdiğin günlerde ikisi de yapılmaz.
         </p>
         <p className="mb-4 text-[15px]">
           {last

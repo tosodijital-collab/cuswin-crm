@@ -52,3 +52,38 @@ describe("Randevu aldım (tek adım)", () => {
     expect((await repo.getBusiness(b.id))!.activities.length).toBe(before);
   });
 });
+
+describe("ara verme", () => {
+  it("yarın için ara verince bugün etkilenmez, yarın etkilenir; devam et kaldırır", async () => {
+    const { setPauseAction } = await import("@/lib/actions");
+    const { isPausedOn } = await import("@/lib/domain/rules");
+    const repo = getRepository();
+    const today = toDateStr(new Date());
+    const res = await setPauseAction({ ok: false }, form({ kind: "yarin" }));
+    expect(res.ok).toBe(true);
+    let s = await repo.getSettings();
+    expect(isPausedOn(s.pause, today)).toBe(false);
+    expect(isPausedOn(s.pause, addDays(today, 1))).toBe(true);
+    expect(isPausedOn(s.pause, addDays(today, 2))).toBe(false);
+    await setPauseAction({ ok: false }, form({ kind: "devam" }));
+    s = await repo.getSettings();
+    expect(s.pause).toBeUndefined();
+  });
+
+  it("tarih aralığı ve süresiz", async () => {
+    const { setPauseAction } = await import("@/lib/actions");
+    const { isPausedOn } = await import("@/lib/domain/rules");
+    const repo = getRepository();
+    const today = toDateStr(new Date());
+    const bad = await setPauseAction({ ok: false }, form({ kind: "aralik", from: addDays(today, 3), until: addDays(today, 1) }));
+    expect(bad.ok).toBe(false);
+    await setPauseAction({ ok: false }, form({ kind: "aralik", from: addDays(today, 1), until: addDays(today, 3) }));
+    let s = await repo.getSettings();
+    expect(isPausedOn(s.pause, addDays(today, 2))).toBe(true);
+    expect(isPausedOn(s.pause, addDays(today, 4))).toBe(false);
+    await setPauseAction({ ok: false }, form({ kind: "suresiz" }));
+    s = await repo.getSettings();
+    expect(isPausedOn(s.pause, addDays(today, 365))).toBe(true);
+    await setPauseAction({ ok: false }, form({ kind: "devam" }));
+  });
+});

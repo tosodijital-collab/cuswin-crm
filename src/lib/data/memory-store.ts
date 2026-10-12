@@ -24,6 +24,7 @@ import type {
   ImportResult,
   PlaceInput,
   SalesStage,
+  Pause,
   ScanRun,
   Settings,
 } from "@/lib/domain/types";
@@ -47,7 +48,7 @@ type State = {
   activities: Activity[];
   appointments: Appointment[];
   runs: DailyRun[];
-  settings: EditableSettings;
+  settings: EditableSettings & { pause?: Pause };
   scans: ScanRun[];
   scanCursor: number;
 };
@@ -301,6 +302,10 @@ export class MemoryRepository implements CrmRepository {
 
   async updateSettings(input: EditableSettings): Promise<void> {
     Object.assign(this.s.settings, input);
+  }
+
+  async setPause(pause: Pause | null): Promise<void> {
+    this.s.settings.pause = pause ?? undefined;
   }
 
   async listRuns(limit: number): Promise<DailyRun[]> {

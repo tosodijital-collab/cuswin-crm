@@ -67,6 +67,12 @@ async function dispatchScan(reason: string): Promise<boolean> {
   return true;
 }
 
+async function isPaused(today: string): Promise<boolean> {
+  const { data, error } = await db.rpc("is_paused", { d: today });
+  if (error) throw new Error(error.message);
+  return data === true;
+}
+
 async function scans(today: string, now: string) {
   // Elle istenen tarama
   const claimed = (await must(db.from("scan_requests").update({ status: "alindi" }).eq("status", "bekliyor").select("id"))) as Row[];
@@ -74,8 +80,8 @@ async function scans(today: string, now: string) {
     const ok = await dispatchScan("istek");
     if (!ok) await must(db.from("scan_requests").update({ status: "bekliyor" }).in("id", claimed.map((r) => r.id)));
   }
-  // Günlük tarama (kaçırıldıysa gün içinde telafi edilir)
-  if (now >= SCAN_TIME && (await getState("scan_dispatched_date")) !== today) {
+  // Günlük tarama (kaçırıldıysa gün içinde telafi edilir); ara verilen günlerde yapılmaz
+  if (now >= SCAN_TIME && (await getState("scan_dispatched_date")) !== today && !(await isPaused(today))) {
     if (await dispatchScan("günlük")) await setState("scan_dispatched_date", today);
   }
 }
@@ -84,6 +90,7 @@ async function scans(today: string, now: string) {
 
 async function dailyList(today: string, now: string) {
   if (now < LIST_TIME) return;
+  if (await isPaused(today)) return;
   const runs = (await must(db.from("daily_runs").select("date").eq("date", today))) as Row[];
   if (runs.length) return;
   const trigger = now < "08:40" ? "zamanlanmis" : "telafi";

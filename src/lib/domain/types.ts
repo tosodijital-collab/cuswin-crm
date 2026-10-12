@@ -170,6 +170,8 @@ export type DailyRun = {
   trigger: "zamanlanmis" | "manuel" | "telafi";
 };
 
+export type Pause = { from?: DateStr; until?: DateStr; forever: boolean };
+
 export type Settings = {
   dailyTarget: number;
   categories: Category[];
@@ -178,6 +180,8 @@ export type Settings = {
   reminderMinutes: number;
   /** Bir taramada eklenecek en fazla yeni işletme. */
   scanLimit: number;
+  /** Ara verme: bu günlerde (dahil) sabah taraması ve günün listesi otomatik oluşturulmaz. */
+  pause?: Pause;
   /** ntfy sunucusu ve konu ayarlı mı (sunucu tarafı ortam değişkenleri). */
   notificationsConfigured: boolean;
   calendarConfigured: boolean;

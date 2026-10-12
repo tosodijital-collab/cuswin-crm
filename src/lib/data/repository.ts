@@ -14,6 +14,7 @@ import type {
   PlaceInput,
   SalesStage,
   ScanRun,
+  Pause,
   Settings,
   Source,
 } from "@/lib/domain/types";
@@ -87,7 +88,7 @@ export type Integrations = {
 /** created: yeni liste açıldı; added: bu çalışmada listeye eklenen işletme (eksik gün tamamlanınca da > 0). */
 export type DailyRunResult = { run: DailyRun; created: boolean; added: number };
 
-export type EditableSettings = Omit<Settings, "notificationsConfigured" | "calendarConfigured" | "scannerConfigured">;
+export type EditableSettings = Omit<Settings, "notificationsConfigured" | "calendarConfigured" | "scannerConfigured" | "pause">;
 
 export interface CrmRepository {
   /** "demo": uydurma kayıtlar, kalıcı değil. "yerel": gerçek kayıtlar, yerel dosyada. */
@@ -116,6 +117,8 @@ export interface CrmRepository {
 
   getSettings(): Promise<Settings>;
   updateSettings(input: EditableSettings): Promise<void>;
+  /** null: ara vermeyi kaldır. */
+  setPause(pause: Pause | null): Promise<void>;
   listRuns(limit: number): Promise<DailyRun[]>;
   runDailyList(trigger: DailyRun["trigger"]): Promise<DailyRunResult>;
 
