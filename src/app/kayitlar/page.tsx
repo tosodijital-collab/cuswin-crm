@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Suspense } from "react";
+import { Suspense, useState } from "react";
 import { CallStatusBadge, LoadState, PageTitle, Panel, StageBadge, buttonClass, inputClass } from "@/components/ui";
 import { useData } from "@/lib/client/refresh";
 import { getRepository } from "@/lib/data";
@@ -27,6 +27,8 @@ function Records() {
   const filters = parseBusinessFilters(Object.fromEntries(searchParams));
   const repo = getRepository();
   const { data, error } = useData(() => Promise.all([repo.listBusinesses(filters), repo.listDistricts()]), key);
+  const activeFilters = [filters.category, filters.district, filters.callStatus, filters.salesStage, filters.source, filters.needsReview].filter(Boolean).length;
+  const [showFilters, setShowFilters] = useState(false);
   if (!data) return <LoadState error={error} />;
   const [rows, districts] = data;
   const today = toDateStr(new Date());
@@ -52,6 +54,15 @@ function Records() {
           aria-label="Ara"
           className={`${inputClass} sm:col-span-2`}
         />
+        <button
+          type="button"
+          onClick={() => setShowFilters((v) => !v)}
+          aria-expanded={showFilters || activeFilters > 0}
+          className={`${buttonClass.secondary} md:hidden`}
+        >
+          {showFilters ? "Filtreleri gizle" : `Filtreler${activeFilters ? ` (${activeFilters} etkin)` : ""}`}
+        </button>
+        <div className={`${showFilters ? "contents" : "hidden"} md:contents`}>
         <Select name="kategori" label="Kategori" value={filters.category} options={CATEGORIES.map((c) => [c, CATEGORY_LABELS[c]])} />
         <Select name="ilce" label="İlçe" value={filters.district} options={districts.map((d) => [d, d])} />
         <Select name="durum" label="Arama durumu" value={filters.callStatus} options={CALL_STATUSES.map((s) => [s, CALL_STATUS_LABELS[s]])} />
@@ -61,6 +72,7 @@ function Records() {
           <input type="checkbox" name="kontrol" value="1" defaultChecked={filters.needsReview} className="size-4 accent-ink" />
           Yalnızca kontrol gerekenler
         </label>
+        </div>
         <div className="flex gap-2 sm:col-span-2 lg:col-span-4">
           <button type="submit" className={buttonClass.primary}>
             Filtrele

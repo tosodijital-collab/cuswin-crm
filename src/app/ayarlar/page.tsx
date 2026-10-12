@@ -21,7 +21,7 @@ export default function SettingsPage() {
   const scanRunning = scans.some((s) => s.status === "calisiyor");
 
   return (
-    <div className="grid gap-6">
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-6">
       <PageTitle>Ayarlar</PageTitle>
 
       <Block title="Ara verme">
