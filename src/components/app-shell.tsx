@@ -5,6 +5,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { getBrowserSupabase, isSupabaseConfigured } from "@/lib/supabase/client";
 import { MainNav } from "./main-nav";
 import { Toaster } from "./toast";
+import { UpdateChecker } from "./update-checker";
 
 type AuthState = "yukleniyor" | "giris" | "hazir" | "yetkisiz";
 
@@ -57,6 +58,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         )}
       </main>
       <Toaster />
+      <UpdateChecker />
     </>
   );
 }
