@@ -13,7 +13,7 @@ import { CALL_STATUS_LABELS } from "@/lib/domain/labels";
 import { goalProgress, SALES_GOAL } from "@/lib/domain/report";
 import { isPausedOn } from "@/lib/domain/rules";
 import { dayLabel, SEGMENTS } from "@/lib/domain/segments";
-import { formatLongDate, formatTime, relativeDay, toDateStr } from "@/lib/domain/time";
+import { addDays, formatLongDate, formatTime, relativeDay, toDateStr } from "@/lib/domain/time";
 
 /**
  * Bugün: sırasıyla yapılacaklar. 1) bugünün randevuları, 2) bugünkü takip aramaları,
@@ -58,8 +58,11 @@ export default function HomePage() {
     const diff = Math.round((Date.parse(today) - Date.parse(due)) / 86_400_000);
     return diff === 1 ? "1 gün gecikti" : `${diff} gün gecikti`;
   };
+  // 7 günden eski görevler (ör. otomatik listeden kalanlar) ana listeyi kalabalıklaştırmasın: katlanır bölümde.
+  const staleBefore = addDays(today, -7);
+  const stale = home.gecikenler.filter((v) => v.task.dueDate < staleBefore);
   const followUps: { row: CallRowData; late: boolean }[] = [
-    ...home.gecikenler.map((v) => ({ row: toRow(v, daysLate(v.task.dueDate)), late: true })),
+    ...home.gecikenler.filter((v) => v.task.dueDate >= staleBefore).map((v) => ({ row: toRow(v, daysLate(v.task.dueDate)), late: true })),
     ...home.dundenKalanlar.map((v) => ({ row: toRow(v, "Dün ulaşılamadı"), late: false })),
     ...home.planlananlar.map((v) => ({ row: toRow(v, v.task.dueTime ? `Saat ${v.task.dueTime}` : "Gün içinde"), late: false })),
   ];
@@ -104,6 +107,18 @@ export default function HomePage() {
             </ul>
           ) : (
             <EmptyState>Bugün için takip araması yok.</EmptyState>
+          )}
+          {stale.length > 0 && (
+            <details className="border-t border-line">
+              <summary className="flex min-h-11 cursor-pointer items-center px-4 text-sm font-medium text-muted">
+                Eski görevler ({stale.length}) · 7 günden eski, Saha&apos;da da çıkarlar
+              </summary>
+              <ul>
+                {stale.map((v) => (
+                  <CallRow key={v.task.id} row={toRow(v, daysLate(v.task.dueDate))} today={today} tone="late" />
+                ))}
+              </ul>
+            </details>
           )}
         </Section>
 
