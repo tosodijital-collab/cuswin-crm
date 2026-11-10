@@ -4,6 +4,7 @@ import { z } from "zod";
 import { syncCalendarNow } from "@/lib/calendar-now";
 import { notifyDataChanged } from "@/lib/client/refresh";
 import { getRepository } from "@/lib/data";
+import { REFERRAL_NOTE_PREFIX } from "@/lib/domain/report";
 import { RuleError } from "@/lib/domain/rules";
 import { addDays, istanbulToUtc, toDateStr } from "@/lib/domain/time";
 import {
@@ -98,18 +99,44 @@ const visitSchema = z.object({
   stage: z.union([z.enum(SALES_STAGES), z.literal("")]).optional().transform((v) => v || undefined),
   nextDate: optionalDate,
   nextTime: optionalTime,
-  referral: optionalText(300),
+  referralName: optionalText(200),
+  referralPhone: optionalText(40),
 });
 
 /** Saha ziyareti: aramadan ayrı kaydedilir; randevuya bağlıysa randevu "yapıldı" olur. */
 export async function recordVisitAction(_: ActionState, formData: FormData): Promise<ActionState> {
   return run(async () => {
-    const { businessId, appointmentId, referral, ...input } = visitSchema.parse(fields(formData));
-    // Tanıştırma geçmişte görünsün diye nota eklenir.
+    const { businessId, appointmentId, referralName, referralPhone, ...input } = visitSchema.parse(fields(formData));
+    if (referralName && referralName.length < 2) throw new RuleError("Tanıştırılan kliniğin adını yazın.");
+    const repo = getRepository();
+    const referral = referralName && [referralName, referralPhone].filter(Boolean).join(", ");
+    // Tanıştırma ziyaret geçmişinde de görünsün.
     const note = [input.note, referral && `Tanıştırma: ${referral}`].filter(Boolean).join("\n") || undefined;
-    await getRepository().recordVisit(businessId, { ...input, note }, appointmentId);
-    return input.nextDate ? "Ziyaret kaydedildi, tekrar arama planlandı." : "Ziyaret kaydedildi.";
+    await repo.recordVisit(businessId, { ...input, note }, appointmentId);
+    let message = input.nextDate ? "Ziyaret kaydedildi, takip araması planlandı." : "Ziyaret kaydedildi.";
+    if (referralName) message += " " + (await addReferral(businessId, referralName, referralPhone));
+    return message;
   });
+}
+
+/** Satış kiti: "her görüşmenin sonunda tanıştırma iste". Önerilen klinik aranacak yeni kayıt olur. */
+async function addReferral(fromId: string, name: string, phone?: string): Promise<string> {
+  const repo = getRepository();
+  const from = (await repo.getBusiness(fromId))?.business;
+  try {
+    const id = await repo.createBusiness({
+      name,
+      phone,
+      // Tanıştıran klinikle aynı alanda olması muhtemel; yanlışsa kayıt sayfasından düzeltilir.
+      categories: from?.categories ?? [],
+      contacts: [],
+    });
+    await repo.addNote(id, `${REFERRAL_NOTE_PREFIX}: ${from?.name ?? "bir klinik"} önerdi.`);
+    return "Tanıştırılan klinik aranacaklara eklendi.";
+  } catch (e) {
+    if (e instanceof RuleError) return `Tanıştırılan klinik eklenmedi: ${e.message}`;
+    throw e;
+  }
 }
 
 export async function setStageAction(_: ActionState, formData: FormData): Promise<ActionState> {

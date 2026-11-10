@@ -57,7 +57,7 @@ export function VisitForm({
         <div className="grid grid-cols-[1fr_7rem] gap-2">
           <div>
             <FieldLabel htmlFor={`${uid}-date`}>
-              {result === "kapali" ? "Randevu için tekrar ara" : "Takip araması (tarih koymadan çıkma)"}
+              {result === "kapali" ? "Tekrar ara" : "Takip araması"}
             </FieldLabel>
             {/* Sonuç değişince önerilen gün yeniden gelsin diye key sonuca bağlı. */}
             <input
@@ -74,20 +74,20 @@ export function VisitForm({
             <FieldLabel htmlFor={`${uid}-time`}>Saat</FieldLabel>
             <input id={`${uid}-time`} type="time" name="nextTime" className={inputClass} />
           </div>
+          <p className="col-span-2 -mt-1 text-sm text-muted">Tarih koymadan çıkma. O gün Bugün ekranında aranacaklara düşer.</p>
         </div>
       )}
 
       {result && result !== "kapali" && (
-        <div>
-          <FieldLabel htmlFor={`${uid}-ref`}>Tanıştırma: bu sorunu yaşayan başka klinik var mı?</FieldLabel>
-          <input
-            id={`${uid}-ref`}
-            name="referral"
-            maxLength={300}
-            placeholder="Klinik ya da doktor adı, telefon"
-            className={inputClass}
-          />
-        </div>
+        <fieldset className="rounded-md border border-line bg-surface p-3">
+          <legend className="sr-only">Tanıştırma</legend>
+          <p className="mb-2 text-sm font-medium text-muted">Tanıştırma: bu sorunu yaşayan başka klinik var mı?</p>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <input name="referralName" maxLength={200} placeholder="Klinik ya da doktor adı" aria-label="Tanıştırılan klinik" className={inputClass} />
+            <input name="referralPhone" type="tel" maxLength={40} placeholder="Telefon (varsa)" aria-label="Tanıştırılan kliniğin telefonu" className={inputClass} />
+          </div>
+          <p className="mt-1.5 text-sm text-muted">Yazarsan aranacaklara yeni kayıt olarak eklenir.</p>
+        </fieldset>
       )}
 
       <details className="rounded-md border border-line bg-surface px-3 py-2">

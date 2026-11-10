@@ -60,6 +60,9 @@ export default function HomePage() {
       </div>
 
       <FieldDayCard today={today} />
+      <Link href="/rapor" className="-mt-4 mb-6 block text-right text-[15px] font-medium text-meet hover:underline">
+        Gün sonu raporu ve hedef
+      </Link>
 
       <dl className="mb-6 grid grid-cols-5 gap-px overflow-hidden rounded-lg border border-line bg-line">
         <Stat short="Yeni" label="Kalan yeni aday" value={`${counts.newRemaining}/${counts.newTotal}`} />

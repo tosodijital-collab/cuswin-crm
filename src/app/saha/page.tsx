@@ -20,7 +20,7 @@ import {
 import { buildFieldRoute, dayDirectionsHref, whatsappHref, type FieldStop } from "@/lib/domain/field-route";
 import { CALL_STATUS_LABELS, CATEGORY_LABELS, VISIT_RESULT_LABELS } from "@/lib/domain/labels";
 import { getMaterial } from "@/lib/domain/materials";
-import { DO_RULES, DONT_RULES, FOLLOW_UPS, OBJECTIONS, POSITIONING, salesFunnel } from "@/lib/domain/sales-playbook";
+import { DO_RULES, DONT_RULES, FOLLOW_UPS, OBJECTIONS, POSITIONING } from "@/lib/domain/sales-playbook";
 import { formatDateTime, formatTime, relativeDay, toDateStr } from "@/lib/domain/time";
 import type { Business } from "@/lib/domain/types";
 
@@ -59,7 +59,15 @@ export default function FieldPage() {
 
   return (
     <div>
-      <PageTitle>Saha</PageTitle>
+      <PageTitle
+        aside={
+          <Link href="/rapor" className="text-[15px] font-medium text-meet hover:underline">
+            Gün sonu raporu
+          </Link>
+        }
+      >
+        Saha
+      </PageTitle>
 
       <div role="tablist" aria-label="Segment" className="mb-4 grid grid-cols-2 gap-1 rounded-lg border border-line bg-surface p-1">
         {(Object.keys(SEGMENTS) as Segment[]).map((s) => (
@@ -76,26 +84,27 @@ export default function FieldPage() {
         ))}
       </div>
 
-      <p className="mb-4 text-[15px] text-muted">
-        Önce ara ve o güne yüz yüze randevu al; sahaya randevulara göre çık, aradaki boşlukta yakındaki kliniklere uğra.{" "}
-        <span className="text-ink">
-          {totals.appt} randevu · {totals.call} aranacak · {totals.visited} ziyaret edildi.
-        </span>
+      <p className="mb-3 text-[15px]">
+        <strong className="font-semibold">{totals.appt}</strong> randevu · <strong className="font-semibold">{totals.call}</strong> aranacak ·{" "}
+        <strong className="font-semibold">{totals.visited}</strong> ziyaret
+        <span className="block text-sm text-muted">Önce ara ve o güne randevu al; sahaya randevulara göre çık.</span>
       </p>
-
-      <Funnel businesses={businesses.filter(SEGMENTS[segment].match)} />
 
       <Scripts />
 
-      <nav aria-label="Günler" className="-mx-4 mb-5 flex gap-2 overflow-x-auto px-4 pb-1">
+      <nav
+        aria-label="Günler"
+        className="sticky top-0 z-10 -mx-4 mb-4 flex gap-2 overflow-x-auto border-b border-line bg-paper/95 px-4 py-2 backdrop-blur"
+      >
         {days.map(({ view: { day }, appointments: a }) => (
           <a
             key={day.id}
             href={`#${day.id}`}
             aria-current={day.date === today ? "date" : undefined}
-            className="shrink-0 rounded-full border border-line bg-surface px-3 py-1.5 text-sm font-medium aria-[current=date]:border-ink aria-[current=date]:bg-ink aria-[current=date]:text-white"
+            className="inline-flex min-h-10 shrink-0 items-center rounded-full border border-line bg-surface px-3.5 text-sm font-medium aria-[current=date]:border-ink aria-[current=date]:bg-ink aria-[current=date]:text-white"
           >
-            {dayLabel(day.date, "short")} · {a.length} randevu
+            {dayLabel(day.date, "short")}
+            <span className="ml-1.5 tabular-nums opacity-70">{a.length}</span>
           </a>
         ))}
       </nav>
@@ -126,9 +135,11 @@ export default function FieldPage() {
         {route.unplaced.length > 0 && (
           <Panel className="overflow-hidden" aria-label="Rotaya girmeyenler">
             <h2 className="border-b border-line px-4 py-3 text-[17px] font-semibold">
-              Rotaya girmeyenler <span className="font-normal text-muted">{route.unplaced.length}</span>
+              Tanıştırmalar ve rota dışındakiler <span className="font-normal text-muted">{route.unplaced.length}</span>
             </h2>
-            <p className="px-4 pt-3 text-sm text-muted">Adresi eksik ya da rota bölgelerinin dışında. Adresi düzeltilirse doğru güne düşer.</p>
+            <p className="px-4 pt-3 text-sm text-muted">
+              Tanıştırmayla eklenenler ve adresi eksik ya da rota bölgelerinin dışındaki klinikler. Adres girilirse doğru güne düşer.
+            </p>
             <ul>
               {route.unplaced.map((b) => (
                 <CallTargetRow key={b.id} business={b} today={today} contact={contacts.get(b.id)} />
@@ -152,105 +163,114 @@ function dayLabel(date: string, style: "short" | "long"): string {
   });
 }
 
-/** Satış hunisi: aşamaya ulaşan klinik sayısı ve bir önceki adımdan geçiş oranı. */
-function Funnel({ businesses }: { businesses: Business[] }) {
-  const f = salesFunnel(businesses);
+const GUIDES = [
+  { id: "telefon", label: "Telefon", body: PhoneScript },
+  { id: "ziyaret", label: "Ziyaret", body: VisitScript },
+  { id: "itiraz", label: `İtirazlar (${OBJECTIONS.length})`, body: ObjectionScript },
+] as const;
+
+/** Konuşma rehberi: telefonda randevu, ziyarette görüşme, itirazlar. Tek satır yer kaplar, dokununca açılır. */
+function Scripts() {
+  const [tab, setTab] = useState<(typeof GUIDES)[number]["id"]>("telefon");
+  const Body = GUIDES.find((g) => g.id === tab)!.body;
   return (
-    <section aria-label="Satış hunisi" className="mb-4 rounded-lg border border-line bg-surface px-4 py-3">
-      <p className="flex justify-between text-sm text-muted">
-        <span>Satış hunisi · {f.total} klinik</span>
-        {f.lost > 0 && <span>{f.lost} olumsuz</span>}
-      </p>
-      <ol className="mt-2 grid grid-cols-5 gap-1 text-center">
-        {f.steps.map((s) => (
-          <li key={s.label} className="rounded-md bg-paper px-1 py-1.5">
-            <span className="block text-lg font-semibold tabular-nums">{s.count}</span>
-            <span className="block text-xs text-muted">{s.label}</span>
-            {s.rate !== undefined && <span className="block text-xs tabular-nums text-meet">%{s.rate}</span>}
-          </li>
+    <details className="mb-3 rounded-lg border border-line bg-surface">
+      <summary className="flex min-h-12 cursor-pointer items-center px-4 text-[15px] font-semibold">Konuşma rehberi</summary>
+      <div role="tablist" aria-label="Rehber" className="mx-4 mb-3 grid grid-cols-3 gap-1 rounded-md bg-paper p-1">
+        {GUIDES.map((g) => (
+          <button
+            key={g.id}
+            type="button"
+            role="tab"
+            aria-selected={tab === g.id}
+            onClick={() => setTab(g.id)}
+            className="min-h-10 rounded text-sm text-muted aria-selected:bg-surface aria-selected:font-medium aria-selected:text-ink aria-selected:shadow-sm"
+          >
+            {g.label}
+          </button>
         ))}
-      </ol>
-    </section>
+      </div>
+      <Body />
+    </details>
   );
 }
 
-function Scripts() {
+function PhoneScript() {
   return (
-    <div className="mb-5 grid gap-2">
-      <details className="rounded-lg border border-line bg-surface">
-        <summary className="cursor-pointer px-4 py-3 text-[15px] font-semibold">Telefonda: randevu nasıl alınır?</summary>
-        <div className="grid gap-3 border-t border-line px-4 py-3 text-[15px]">
-          <p className="rounded-md bg-paper px-3 py-2">
-            <strong className="font-semibold">{POSITIONING.thesis}</strong> {POSITIONING.message}
-          </p>
-          <Script title="Sekretere">
-            Merhaba, ben [adın], Cuswin&apos;den. Kliniklere gelen telefon, WhatsApp ve Instagram mesajlarına cevap veren bir sistem
-            kurduk. Ankara&apos;da bir klinikte 1 aydır çalışıyor. Doktor bey/hanıma kliniğinizde 10 dakika yüz yüze göstermek isterim.
-          </Script>
-          <Script title="İki seçenek sun">
-            Perşembe 14:00 mü uygun, yoksa 16:00 mı? (Açık uçlu &quot;ne zaman uygun?&quot; diye sorma.)
-          </Script>
-          <Script title="&quot;Bilgi gönderin&quot; derse">
-            Tabii, tanıtım dosyasını WhatsApp&apos;tan atıyorum. Ama asıl farkı 10 dakikada kendi telefonunuzdan görüyorsunuz; perşembe
-            o bölgedeyim, 14:00&apos;te uğrayayım mı?
-          </Script>
-          <p className="text-sm text-muted">
-            Randevu alınca &quot;Randevu aldım&quot;a bas: tarih o saha günü, adres kliniğin adresi olarak gelir, takvime yazılır.
-          </p>
-        </div>
-      </details>
-      <details className="rounded-lg border border-line bg-surface">
-        <summary className="cursor-pointer px-4 py-3 text-[15px] font-semibold">Ziyarette: 10 dakikalık görüşme</summary>
-        <div className="grid gap-3 border-t border-line px-4 py-3 text-[15px]">
-          <dl className="grid grid-cols-2 gap-2 text-center">
-            <Fact value="2.934" label="mesaj ve arama, 30 günde" />
-            <Fact value="462/464" label="mesai dışı konuşma karşılandı" />
-            <Fact value="174" label="randevu alındı" />
-            <Fact value="%93" label="randevuya gelme" />
-          </dl>
-          <Script title="Açılış (30 sn)">
-            Ankara&apos;da bir klinikte Cuswin&apos;i 1 aydır kullanıyoruz. 30 günde 2.934 mesaj ve arama gelmiş, yarısından fazlası mesai
-            saatleri dışında. Sizde durum nasıl?
-          </Script>
-          <Script title="Sor ve dinle (2 dk)">
-            Günde kaç mesaj geliyor? Akşam ve hafta sonu kim bakıyor? &quot;Düşüneyim&quot; diyen hastaya geri dönülüyor mu?
-          </Script>
-          <Script title="Canlı demo (3 dk)">
-            Kendi telefonunuzdan şu hesaba hasta gibi yazın: &quot;Dolgu ne kadar?&quot; Cevap 3 saniyede gelir. Sonra paneli göster.
-          </Script>
-          <Script title="Kapanış (2 dk)">
-            Kurulum 3 gün sürüyor. Hangi gün başlayalım, pazartesi mi çarşamba mı? Broşürü bırak, tarih koymadan çıkma.
-          </Script>
-          <p className="text-sm text-muted">Pilot kliniğin adını hiçbir koşulda söyleme.</p>
-        </div>
-      </details>
-      <details className="rounded-lg border border-line bg-surface">
-        <summary className="cursor-pointer px-4 py-3 text-[15px] font-semibold">İtiraz gelirse ({OBJECTIONS.length})</summary>
-        <div className="border-t border-line px-4 py-3 text-[15px]">
-          <p className="mb-3 text-sm text-muted">
-            Önce itirazı tekrar et (&quot;Yani şundan endişeleniyorsunuz…&quot;), sonra cevap ver, sonra &quot;Bu konuda içiniz rahat mı?&quot; diye sor.
-          </p>
-          <dl className="grid gap-3">
-            {OBJECTIONS.map((o) => (
-              <div key={o.q}>
-                <dt className="font-medium">&quot;{o.q}&quot;</dt>
-                <dd className="text-muted">{o.a}</dd>
-              </div>
-            ))}
-          </dl>
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            <div>
-              <p className="text-sm font-medium text-call">Yap</p>
-              <ul className="list-disc pl-5">{DO_RULES.map((r) => <li key={r}>{r}</li>)}</ul>
-            </div>
-            <div>
-              <p className="text-sm font-medium text-stop">Yapma</p>
-              <ul className="list-disc pl-5">{DONT_RULES.map((r) => <li key={r}>{r}</li>)}</ul>
-            </div>
+    <div className="grid gap-3 px-4 pb-4 pt-1 text-[15px]">
+      <p className="rounded-md bg-paper px-3 py-2">
+        <strong className="font-semibold">{POSITIONING.thesis}</strong> {POSITIONING.message}
+      </p>
+      <Script title="Sekretere">
+        Merhaba, ben [adın], Cuswin&apos;den. Kliniklere gelen telefon, WhatsApp ve Instagram mesajlarına cevap veren bir sistem
+        kurduk. Ankara&apos;da bir klinikte 1 aydır çalışıyor. Doktor bey/hanıma kliniğinizde 10 dakika yüz yüze göstermek isterim.
+      </Script>
+      <Script title="İki seçenek sun">
+        Perşembe 14:00 mü uygun, yoksa 16:00 mı? (Açık uçlu &quot;ne zaman uygun?&quot; diye sorma.)
+      </Script>
+      <Script title="&quot;Bilgi gönderin&quot; derse">
+        Tabii, tanıtım dosyasını WhatsApp&apos;tan atıyorum. Ama asıl farkı 10 dakikada kendi telefonunuzdan görüyorsunuz; perşembe
+        o bölgedeyim, 14:00&apos;te uğrayayım mı?
+      </Script>
+      <p className="text-sm text-muted">
+        Randevu alınca &quot;Randevu aldım&quot;a bas: tarih o saha günü, adres kliniğin adresi olarak gelir, takvime yazılır.
+      </p>
+    </div>
+  );
+}
+
+function VisitScript() {
+  return (
+    <div className="grid gap-3 px-4 pb-4 pt-1 text-[15px]">
+      <dl className="grid grid-cols-2 gap-2 text-center">
+        <Fact value="2.934" label="mesaj ve arama, 30 günde" />
+        <Fact value="462/464" label="mesai dışı konuşma karşılandı" />
+        <Fact value="174" label="randevu alındı" />
+        <Fact value="%93" label="randevuya gelme" />
+      </dl>
+      <Script title="Açılış (30 sn)">
+        Ankara&apos;da bir klinikte Cuswin&apos;i 1 aydır kullanıyoruz. 30 günde 2.934 mesaj ve arama gelmiş, yarısından fazlası mesai
+        saatleri dışında. Sizde durum nasıl?
+      </Script>
+      <Script title="Sor ve dinle (2 dk)">
+        Günde kaç mesaj geliyor? Akşam ve hafta sonu kim bakıyor? &quot;Düşüneyim&quot; diyen hastaya geri dönülüyor mu?
+      </Script>
+      <Script title="Canlı demo (3 dk)">
+        Kendi telefonunuzdan şu hesaba hasta gibi yazın: &quot;Dolgu ne kadar?&quot; Cevap 3 saniyede gelir. Sonra paneli göster.
+      </Script>
+      <Script title="Kapanış (2 dk)">
+        Kurulum 3 gün sürüyor. Hangi gün başlayalım, pazartesi mi çarşamba mı? Broşürü bırak, tarih koymadan çıkma.
+      </Script>
+      <p className="text-sm text-muted">Pilot kliniğin adını hiçbir koşulda söyleme.</p>
+    </div>
+  );
+}
+
+function ObjectionScript() {
+  return (
+    <div className="px-4 pb-4 pt-1 text-[15px]">
+      <p className="mb-3 text-sm text-muted">
+        Önce itirazı tekrar et (&quot;Yani şundan endişeleniyorsunuz…&quot;), sonra cevap ver, sonra &quot;Bu konuda içiniz rahat mı?&quot; diye sor.
+      </p>
+      <dl className="grid gap-3">
+        {OBJECTIONS.map((o) => (
+          <div key={o.q}>
+            <dt className="font-medium">&quot;{o.q}&quot;</dt>
+            <dd className="text-muted">{o.a}</dd>
           </div>
-          <p className="mt-3 text-sm text-muted">{POSITIONING.rival} Dil: &quot;{POSITIONING.say}&quot;</p>
+        ))}
+      </dl>
+      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        <div>
+          <p className="text-sm font-medium text-call">Yap</p>
+          <ul className="list-disc pl-5">{DO_RULES.map((r) => <li key={r}>{r}</li>)}</ul>
         </div>
-      </details>
+        <div>
+          <p className="text-sm font-medium text-stop">Yapma</p>
+          <ul className="list-disc pl-5">{DONT_RULES.map((r) => <li key={r}>{r}</li>)}</ul>
+        </div>
+      </div>
+      <p className="mt-3 text-sm text-muted">{POSITIONING.rival} Dil: &quot;{POSITIONING.say}&quot;</p>
     </div>
   );
 }
@@ -370,14 +390,22 @@ function BusinessHeader({ business: b, children }: { business: Business; childre
   );
 }
 
-function PhoneButton({ business: b }: { business: Business }) {
+/** primary: aranacaklar listesinde asıl iş aramak; numara tam satır ve yeşil. */
+function PhoneButton({ business: b, primary }: { business: Business; primary?: boolean }) {
   const tel = telHref(b.phone);
-  return tel ? (
-    <a href={tel} className={`${btn} tabular-nums`}>
+  if (!tel) return <span className={`self-center text-sm text-stop ${primary ? "col-span-2" : ""}`}>Telefon yok</span>;
+  return (
+    <a
+      href={tel}
+      className={
+        primary
+          ? "col-span-2 inline-flex min-h-12 items-center justify-center gap-2 rounded-md bg-call px-4 text-[16px] font-semibold tabular-nums text-white hover:bg-call/90"
+          : `${btn} tabular-nums`
+      }
+    >
+      {primary && "Ara · "}
       {formatPhone(b.phone)}
     </a>
-  ) : (
-    <span className="self-center text-sm text-stop">Telefon yok</span>
   );
 }
 
@@ -455,14 +483,14 @@ function CallTargetRow({
       <div className="px-4 py-3.5">
         <BusinessHeader business={b}>
           {(last || b.failedStreak > 0) && (
-            <p className="mt-1 text-sm text-late">
+            <p className={`mt-1 text-sm ${b.failedStreak > 0 ? "text-late" : "text-muted"}`}>
               {last}
               {b.failedStreak > 0 && ` (${b.failedStreak}/3 ulaşılamadı)`}
             </p>
           )}
         </BusinessHeader>
         <div className="mt-3 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
-          <PhoneButton business={b} />
+          <PhoneButton business={b} primary />
           <button
             type="button"
             onClick={() => toggle("randevu")}
@@ -490,7 +518,7 @@ function CallTargetRow({
             type="button"
             onClick={() => toggle("ziyaret")}
             aria-expanded={open === "ziyaret"}
-            className={`${btn} ${wa ? "" : "col-span-2"} aria-expanded:bg-paper`}
+            className={`${btn} ${wa ? "col-span-2" : ""} aria-expanded:bg-paper`}
           >
             Randevusuz uğradım
           </button>

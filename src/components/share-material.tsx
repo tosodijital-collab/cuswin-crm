@@ -81,14 +81,14 @@ export function ShareMaterialButton({
   );
 }
 
-export function CopyMessageButton({ text, className }: { text: string; className: string }) {
+export function CopyMessageButton({ text, className, label = "Mesajı kopyala" }: { text: string; className: string; label?: string }) {
   return (
     <button
       type="button"
       onClick={async () => showToast((await copy(text)) ? "Mesaj kopyalandı." : "Kopyalanamadı.")}
       className={className}
     >
-      Mesajı kopyala
+      {label}
     </button>
   );
 }

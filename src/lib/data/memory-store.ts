@@ -202,6 +202,13 @@ export class MemoryRepository implements CrmRepository {
       .map((a) => ({ ...a }));
   }
 
+  async listActivitiesSince(sinceIso: string): Promise<Activity[]> {
+    return this.s.activities
+      .filter((a) => a.at >= sinceIso && !a.voidedAt)
+      .sort((a, b) => b.at.localeCompare(a.at))
+      .map((a) => ({ ...a }));
+  }
+
   async setSalesStage(businessId: string, stage: SalesStage, note?: string): Promise<void> {
     const b = this.mustBusiness(businessId);
     if (b.salesStage === stage && !note) return;
