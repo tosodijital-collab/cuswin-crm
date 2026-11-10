@@ -16,12 +16,17 @@ export function CallOutcomeForm({
   today,
   onDone,
   autoFocus,
+  defaultNote,
+  resultLabel = "Arama sonucu",
 }: {
   businessId: string;
   currentStage: SalesStage;
   today: string;
   onDone?: () => void;
   autoFocus?: boolean;
+  /** Not alanına önceden yazılan metin (ör. saha ziyareti). */
+  defaultNote?: string;
+  resultLabel?: string;
 }) {
   const [state, action, pending] = useActionState<ActionState, FormData>(recordCallAction, { ok: false });
   const [result, setResult] = useState<CallStatus | "">("");
@@ -40,7 +45,7 @@ export function CallOutcomeForm({
     <form action={action} className="grid gap-3 sm:grid-cols-2">
       <input type="hidden" name="businessId" value={businessId} />
       <div>
-        <FieldLabel htmlFor={`${uid}-result`}>Arama sonucu</FieldLabel>
+        <FieldLabel htmlFor={`${uid}-result`}>{resultLabel}</FieldLabel>
         <select
           id={`${uid}-result`}
           name="result"
@@ -143,6 +148,7 @@ export function CallOutcomeForm({
           name="note"
           rows={2}
           maxLength={2000}
+          defaultValue={defaultNote}
           placeholder="Kiminle konuşuldu, ne söylendi?"
           className={inputClass}
         />

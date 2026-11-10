@@ -6,6 +6,7 @@ import { getBrowserSupabase } from "@/lib/supabase/client";
 
 const LINKS = [
   { href: "/", label: "Bugün" },
+  { href: "/saha", label: "Saha" },
   { href: "/kayitlar", label: "Kayıtlar" },
   { href: "/randevular", label: "Randevular" },
   { href: "/ayarlar", label: "Ayarlar" },
@@ -51,7 +52,7 @@ export function MainNav({ showSignOut }: { showSignOut?: boolean }) {
       </header>
       <nav
         aria-label="Ana menü"
-        className="fixed inset-x-0 bottom-0 z-20 grid grid-cols-4 border-t border-line bg-surface pb-[env(safe-area-inset-bottom)] md:hidden"
+        className="fixed inset-x-0 bottom-0 z-20 grid grid-cols-5 border-t border-line bg-surface pb-[env(safe-area-inset-bottom)] md:hidden"
       >
         {LINKS.map((l) => (
           <Link
