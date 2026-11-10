@@ -1,5 +1,5 @@
 -- Saha ziyaretleri aramalardan ayrı kaydedilir: geçmişte "ziyaret" türü, sonucu call_result sütununda
--- (doktorla_gorusuldu, sekreterle_gorusuldu, kapali, ilgilenmiyor). Ziyaret arama sayılmaz: günlük arama
+-- (demo_yapildi, doktorla_gorusuldu, sekreterle_gorusuldu, kapali, ilgilenmiyor). Ziyaret arama sayılmaz: günlük arama
 -- sayısına, ulaşılamama sayacına ve "daha önce arandı mı" kontrolüne girmez.
 
 alter table public.activities drop constraint if exists activities_type_check;

@@ -36,7 +36,8 @@ export const SALES_STAGE_LABELS: Record<SalesStage, string> = {
 };
 
 export const VISIT_RESULT_LABELS: Record<VisitResult, string> = {
-  doktorla_gorusuldu: "Doktorla görüştüm",
+  demo_yapildi: "Doktorla görüştüm, demo yaptım",
+  doktorla_gorusuldu: "Doktorla görüştüm, demo olmadı",
   sekreterle_gorusuldu: "Sekreterle görüştüm, broşür bıraktım",
   kapali: "Kapalıydı, kimse yoktu",
   ilgilenmiyor: "İlgilenmiyor",

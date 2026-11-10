@@ -152,6 +152,7 @@ export function decideVisitOutcome(business: Business, input: VisitOutcomeInput,
   let target = business.salesStage;
 
   switch (result) {
+    case "demo_yapildi":
     case "doktorla_gorusuldu":
       target = advanceTo(target, "gorusme_yapildi");
       patch.callStatus = "gorusuldu";
@@ -184,11 +185,21 @@ export function decideVisitOutcome(business: Business, input: VisitOutcomeInput,
 }
 
 const VISIT_SUMMARY: Record<VisitResult, string> = {
+  demo_yapildi: "Ziyaret: doktorla görüşüldü, demo yapıldı",
   doktorla_gorusuldu: "Ziyaret: doktorla görüşüldü",
   sekreterle_gorusuldu: "Ziyaret: sekreterle görüşüldü",
   kapali: "Ziyaret: kapalıydı",
   ilgilenmiyor: "Ziyaret: ilgilenmiyor",
 };
+
+/**
+ * Satış kiti: "her görüşmenin sonunda tarih koy". Ziyaret sonrası önerilen tekrar arama günü:
+ * görüşme ya da sekreter → 3 gün sonra ("düşüneyim" takibi), kapalı → ertesi gün randevu için ara.
+ */
+export function suggestedFollowUp(result: VisitResult, today: DateStr): DateStr | undefined {
+  if (result === "ilgilenmiyor") return undefined;
+  return addDays(today, result === "kapali" ? 1 : 3);
+}
 
 /** Randevu sonucuna yazılan kısa metin. */
 export function visitSummary(input: Pick<VisitOutcomeInput, "result" | "note">): string {

@@ -98,13 +98,16 @@ const visitSchema = z.object({
   stage: z.union([z.enum(SALES_STAGES), z.literal("")]).optional().transform((v) => v || undefined),
   nextDate: optionalDate,
   nextTime: optionalTime,
+  referral: optionalText(300),
 });
 
 /** Saha ziyareti: aramadan ayrı kaydedilir; randevuya bağlıysa randevu "yapıldı" olur. */
 export async function recordVisitAction(_: ActionState, formData: FormData): Promise<ActionState> {
   return run(async () => {
-    const { businessId, appointmentId, ...input } = visitSchema.parse(fields(formData));
-    await getRepository().recordVisit(businessId, input, appointmentId);
+    const { businessId, appointmentId, referral, ...input } = visitSchema.parse(fields(formData));
+    // Tanıştırma geçmişte görünsün diye nota eklenir.
+    const note = [input.note, referral && `Tanıştırma: ${referral}`].filter(Boolean).join("\n") || undefined;
+    await getRepository().recordVisit(businessId, { ...input, note }, appointmentId);
     return input.nextDate ? "Ziyaret kaydedildi, tekrar arama planlandı." : "Ziyaret kaydedildi.";
   });
 }

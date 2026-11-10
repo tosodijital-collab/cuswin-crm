@@ -107,3 +107,41 @@ describe("saha planı: önce randevu", () => {
     expect(m.get("x")?.lastVisit?.visitResult).toBe("kapali");
   });
 });
+
+describe("satış kitinden kurallar", () => {
+  it("görüşmeden sonra 3 gün, kapalıysa ertesi gün tarih önerilir; ilgilenmiyorsa önerilmez", async () => {
+    const { suggestedFollowUp } = await import("@/lib/domain/rules");
+    expect(suggestedFollowUp("demo_yapildi", TODAY)).toBe("2026-11-15");
+    expect(suggestedFollowUp("sekreterle_gorusuldu", TODAY)).toBe("2026-11-15");
+    expect(suggestedFollowUp("kapali", TODAY)).toBe("2026-11-13");
+    expect(suggestedFollowUp("ilgilenmiyor", TODAY)).toBeUndefined();
+  });
+
+  it("demo yapıldı aşamayı görüşmeye taşır ve randevuyu tamamlar", () => {
+    const o = decideVisitOutcome(biz({ salesStage: "randevu_alindi" }), { result: "demo_yapildi" }, TODAY);
+    expect(o.patch.salesStage).toBe("gorusme_yapildi");
+    expect(o.completesAppointment).toBe(true);
+  });
+
+  it("satış hunisi aşamaya ulaşanları sayar, olumsuzu ayrı tutar", async () => {
+    const { salesFunnel } = await import("@/lib/domain/sales-playbook");
+    const f = salesFunnel([
+      { salesStage: "yeni_aday" },
+      { salesStage: "yeni_aday" },
+      { salesStage: "iletisim_kuruldu" },
+      { salesStage: "randevu_alindi" },
+      { salesStage: "musteri_oldu" },
+      { salesStage: "olumsuz" },
+    ]);
+    expect(f.total).toBe(6);
+    expect(f.lost).toBe(1);
+    expect(f.steps.map((s) => s.count)).toEqual([3, 2, 1, 1, 1]);
+    expect(f.steps[0].rate).toBe(50);
+  });
+
+  it("metinlerde pilot klinik adı ve 11 saniye yok", async () => {
+    const pb = await import("@/lib/domain/sales-playbook");
+    const all = JSON.stringify([pb.OBJECTIONS, pb.FOLLOW_UPS, pb.POSITIONING, pb.DO_RULES, pb.DONT_RULES]);
+    expect(all).not.toMatch(/hakan|genç klinik|11 sn|11 saniye/i);
+  });
+});

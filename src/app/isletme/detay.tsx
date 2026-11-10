@@ -21,6 +21,7 @@ import {
 } from "@/lib/domain/labels";
 import { whatsappHref } from "@/lib/domain/field-route";
 import { getMaterial, type MaterialId } from "@/lib/domain/materials";
+import { FOLLOW_UPS } from "@/lib/domain/sales-playbook";
 import { MAX_FAILED_STREAK } from "@/lib/domain/rules";
 import { addDays, formatDateTime, formatShortDate, relativeDay, toDateStr, toTimeStr } from "@/lib/domain/time";
 import type { Activity } from "@/lib/domain/types";
@@ -236,6 +237,22 @@ function SendMaterials({ phone }: { phone?: string }) {
         <a href={wa} target="_blank" rel="noopener noreferrer" className={`${btn} border-call/40 text-call hover:bg-call-soft`}>
           WhatsApp&apos;ta mesaj aç
         </a>
+      )}
+      {wa && (
+        <div className="grid grid-cols-2 gap-2">
+          {FOLLOW_UPS.map((f) => (
+            <a
+              key={f.id}
+              href={whatsappHref(phone, f.text)}
+              target="_blank"
+              rel="noopener noreferrer"
+              title={f.when}
+              className={`${btn} border-call/40 text-call hover:bg-call-soft`}
+            >
+              {f.label}
+            </a>
+          ))}
+        </div>
       )}
       <div className="grid grid-cols-3 gap-2">
         {SEND.map((s) => (

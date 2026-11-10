@@ -20,6 +20,7 @@ import {
 import { buildFieldRoute, dayDirectionsHref, whatsappHref, type FieldStop } from "@/lib/domain/field-route";
 import { CALL_STATUS_LABELS, CATEGORY_LABELS, VISIT_RESULT_LABELS } from "@/lib/domain/labels";
 import { getMaterial } from "@/lib/domain/materials";
+import { DO_RULES, DONT_RULES, FOLLOW_UPS, OBJECTIONS, POSITIONING, salesFunnel } from "@/lib/domain/sales-playbook";
 import { formatDateTime, formatTime, relativeDay, toDateStr } from "@/lib/domain/time";
 import type { Business } from "@/lib/domain/types";
 
@@ -81,6 +82,8 @@ export default function FieldPage() {
           {totals.appt} randevu · {totals.call} aranacak · {totals.visited} ziyaret edildi.
         </span>
       </p>
+
+      <Funnel businesses={businesses.filter(SEGMENTS[segment].match)} />
 
       <Scripts />
 
@@ -149,12 +152,37 @@ function dayLabel(date: string, style: "short" | "long"): string {
   });
 }
 
+/** Satış hunisi: aşamaya ulaşan klinik sayısı ve bir önceki adımdan geçiş oranı. */
+function Funnel({ businesses }: { businesses: Business[] }) {
+  const f = salesFunnel(businesses);
+  return (
+    <section aria-label="Satış hunisi" className="mb-4 rounded-lg border border-line bg-surface px-4 py-3">
+      <p className="flex justify-between text-sm text-muted">
+        <span>Satış hunisi · {f.total} klinik</span>
+        {f.lost > 0 && <span>{f.lost} olumsuz</span>}
+      </p>
+      <ol className="mt-2 grid grid-cols-5 gap-1 text-center">
+        {f.steps.map((s) => (
+          <li key={s.label} className="rounded-md bg-paper px-1 py-1.5">
+            <span className="block text-lg font-semibold tabular-nums">{s.count}</span>
+            <span className="block text-xs text-muted">{s.label}</span>
+            {s.rate !== undefined && <span className="block text-xs tabular-nums text-meet">%{s.rate}</span>}
+          </li>
+        ))}
+      </ol>
+    </section>
+  );
+}
+
 function Scripts() {
   return (
     <div className="mb-5 grid gap-2">
       <details className="rounded-lg border border-line bg-surface">
         <summary className="cursor-pointer px-4 py-3 text-[15px] font-semibold">Telefonda: randevu nasıl alınır?</summary>
         <div className="grid gap-3 border-t border-line px-4 py-3 text-[15px]">
+          <p className="rounded-md bg-paper px-3 py-2">
+            <strong className="font-semibold">{POSITIONING.thesis}</strong> {POSITIONING.message}
+          </p>
           <Script title="Sekretere">
             Merhaba, ben [adın], Cuswin&apos;den. Kliniklere gelen telefon, WhatsApp ve Instagram mesajlarına cevap veren bir sistem
             kurduk. Ankara&apos;da bir klinikte 1 aydır çalışıyor. Doktor bey/hanıma kliniğinizde 10 dakika yüz yüze göstermek isterim.
@@ -194,6 +222,33 @@ function Scripts() {
             Kurulum 3 gün sürüyor. Hangi gün başlayalım, pazartesi mi çarşamba mı? Broşürü bırak, tarih koymadan çıkma.
           </Script>
           <p className="text-sm text-muted">Pilot kliniğin adını hiçbir koşulda söyleme.</p>
+        </div>
+      </details>
+      <details className="rounded-lg border border-line bg-surface">
+        <summary className="cursor-pointer px-4 py-3 text-[15px] font-semibold">İtiraz gelirse ({OBJECTIONS.length})</summary>
+        <div className="border-t border-line px-4 py-3 text-[15px]">
+          <p className="mb-3 text-sm text-muted">
+            Önce itirazı tekrar et (&quot;Yani şundan endişeleniyorsunuz…&quot;), sonra cevap ver, sonra &quot;Bu konuda içiniz rahat mı?&quot; diye sor.
+          </p>
+          <dl className="grid gap-3">
+            {OBJECTIONS.map((o) => (
+              <div key={o.q}>
+                <dt className="font-medium">&quot;{o.q}&quot;</dt>
+                <dd className="text-muted">{o.a}</dd>
+              </div>
+            ))}
+          </dl>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <div>
+              <p className="text-sm font-medium text-call">Yap</p>
+              <ul className="list-disc pl-5">{DO_RULES.map((r) => <li key={r}>{r}</li>)}</ul>
+            </div>
+            <div>
+              <p className="text-sm font-medium text-stop">Yapma</p>
+              <ul className="list-disc pl-5">{DONT_RULES.map((r) => <li key={r}>{r}</li>)}</ul>
+            </div>
+          </div>
+          <p className="mt-3 text-sm text-muted">{POSITIONING.rival} Dil: &quot;{POSITIONING.say}&quot;</p>
         </div>
       </details>
     </div>
@@ -484,11 +539,19 @@ function VisitedRow({ business: b, today, contact }: { business: Business; today
             </p>
           )}
         </BusinessHeader>
-        <div className="mt-2 grid grid-cols-2 gap-2 sm:flex">
+        <div className="mt-2 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
           <PhoneButton business={b} />
           <button type="button" onClick={() => setOpen((x) => !x)} aria-expanded={open} className={`${btn} border-meet/40 text-meet`}>
             Randevu aldım
           </button>
+          {FOLLOW_UPS.map((f) => {
+            const href = whatsappHref(b.phone, f.text);
+            return href ? (
+              <a key={f.id} href={href} target="_blank" rel="noopener noreferrer" title={f.when} className={`${btn} border-call/40 text-call`}>
+                {f.label}
+              </a>
+            ) : null;
+          })}
         </div>
       </div>
       {open && (

@@ -32,7 +32,7 @@ export const MEETING_TYPES = ["telefon", "cevrimici", "yuz_yuze"] as const;
 export type MeetingType = (typeof MEETING_TYPES)[number];
 
 /** Saha ziyaretinin sonucu. Arama sonucundan ayrıdır: ziyaret arama sayılmaz. */
-export const VISIT_RESULTS = ["doktorla_gorusuldu", "sekreterle_gorusuldu", "kapali", "ilgilenmiyor"] as const;
+export const VISIT_RESULTS = ["demo_yapildi", "doktorla_gorusuldu", "sekreterle_gorusuldu", "kapali", "ilgilenmiyor"] as const;
 export type VisitResult = (typeof VISIT_RESULTS)[number];
 
 export const APPOINTMENT_STATUSES = ["planlandi", "yapildi", "iptal"] as const;

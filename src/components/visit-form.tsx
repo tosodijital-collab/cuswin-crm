@@ -3,6 +3,7 @@
 import { useActionState, useEffect, useId, useState } from "react";
 import { recordVisitAction, type ActionState } from "@/lib/actions";
 import { SALES_STAGE_LABELS, VISIT_RESULT_LABELS } from "@/lib/domain/labels";
+import { suggestedFollowUp } from "@/lib/domain/rules";
 import { SALES_STAGES, VISIT_RESULTS, type SalesStage, type VisitResult } from "@/lib/domain/types";
 import { showToast } from "./toast";
 import { buttonClass, FieldLabel, FormMessage, inputClass } from "./ui";
@@ -56,14 +57,36 @@ export function VisitForm({
         <div className="grid grid-cols-[1fr_7rem] gap-2">
           <div>
             <FieldLabel htmlFor={`${uid}-date`}>
-              {result === "doktorla_gorusuldu" ? "Takip araması (isteğe bağlı)" : "Tekrar ara (randevu için)"}
+              {result === "kapali" ? "Randevu için tekrar ara" : "Takip araması (tarih koymadan çıkma)"}
             </FieldLabel>
-            <input id={`${uid}-date`} type="date" name="nextDate" min={today} className={inputClass} />
+            {/* Sonuç değişince önerilen gün yeniden gelsin diye key sonuca bağlı. */}
+            <input
+              key={result}
+              id={`${uid}-date`}
+              type="date"
+              name="nextDate"
+              min={today}
+              defaultValue={suggestedFollowUp(result, today)}
+              className={inputClass}
+            />
           </div>
           <div>
             <FieldLabel htmlFor={`${uid}-time`}>Saat</FieldLabel>
             <input id={`${uid}-time`} type="time" name="nextTime" className={inputClass} />
           </div>
+        </div>
+      )}
+
+      {result && result !== "kapali" && (
+        <div>
+          <FieldLabel htmlFor={`${uid}-ref`}>Tanıştırma: bu sorunu yaşayan başka klinik var mı?</FieldLabel>
+          <input
+            id={`${uid}-ref`}
+            name="referral"
+            maxLength={300}
+            placeholder="Klinik ya da doktor adı, telefon"
+            className={inputClass}
+          />
         </div>
       )}
 
