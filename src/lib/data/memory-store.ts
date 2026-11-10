@@ -6,11 +6,14 @@ import { decideImport } from "@/lib/domain/places";
 import {
   dataIssues,
   decideCallOutcome,
+  decideVisitOutcome,
   groupOpenTasks,
   recomputeFailedStreak,
   RuleError,
   selectDailyCandidates,
   type CallOutcomeInput,
+  type VisitOutcomeInput,
+  visitSummary,
 } from "@/lib/domain/rules";
 import { addDays, istanbulToUtc, toDateStr } from "@/lib/domain/time";
 import type {
@@ -171,6 +174,32 @@ export class MemoryRepository implements CrmRepository {
     if (outcome.nextTask) {
       this.s.tasks.push({ id: id(), businessId, kind: "takip", status: "acik", createdAt: at, ...outcome.nextTask });
     }
+  }
+
+  async recordVisit(businessId: string, input: VisitOutcomeInput, appointmentId?: string): Promise<void> {
+    const b = this.mustBusiness(businessId);
+    const outcome = decideVisitOutcome(b, input, today());
+    const at = nowIso();
+    Object.assign(b, outcome.patch);
+    for (const a of outcome.activities) this.s.activities.push({ ...a, id: id(), businessId, at });
+    if (outcome.nextTask) {
+      this.closeOpenTask(businessId, at);
+      this.s.tasks.push({ id: id(), businessId, kind: "takip", status: "acik", createdAt: at, ...outcome.nextTask });
+    }
+    if (appointmentId && outcome.completesAppointment) {
+      const a = this.s.appointments.find((x) => x.id === appointmentId && x.businessId === businessId);
+      if (a && a.status === "planlandi") {
+        a.status = "yapildi";
+        a.outcome = visitSummary(input);
+      }
+    }
+  }
+
+  async listContactHistory(): Promise<Activity[]> {
+    return this.s.activities
+      .filter((a) => (a.type === "arama" || a.type === "ziyaret") && !a.voidedAt)
+      .sort((a, b) => b.at.localeCompare(a.at))
+      .map((a) => ({ ...a }));
   }
 
   async setSalesStage(businessId: string, stage: SalesStage, note?: string): Promise<void> {

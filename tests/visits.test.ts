@@ -1,0 +1,109 @@
+import { describe, expect, it } from "vitest";
+import { getDemoRepository } from "@/lib/data/memory-store";
+import { buildFieldPlan, summarizeContacts, type AppointmentItem } from "@/lib/domain/field-plan";
+import { buildFieldRoute } from "@/lib/domain/field-route";
+import { decideVisitOutcome, RuleError, visitSummary } from "@/lib/domain/rules";
+import type { Activity, Appointment, Business } from "@/lib/domain/types";
+
+const TODAY = "2026-11-12";
+
+function biz(over: Partial<Business> = {}): Business {
+  return {
+    id: "b1",
+    name: "Klinik",
+    categories: ["estetik"],
+    source: "demo",
+    foundAt: "2026-10-01T05:00:00.000Z",
+    contacts: [],
+    callStatus: "aranacak",
+    salesStage: "yeni_aday",
+    failedStreak: 0,
+    district: "Çankaya",
+    ...over,
+  };
+}
+
+describe("ziyaret sonucu (aramadan ayrı)", () => {
+  it("doktorla görüşme aşamayı ilerletir, sayacı sıfırlar, randevuyu tamamlar", () => {
+    const o = decideVisitOutcome(biz({ salesStage: "randevu_alindi", failedStreak: 2 }), { result: "doktorla_gorusuldu" }, TODAY);
+    expect(o.activities[0]).toEqual({ type: "ziyaret", visitResult: "doktorla_gorusuldu", note: undefined });
+    expect(o.patch).toMatchObject({ salesStage: "gorusme_yapildi", callStatus: "gorusuldu", failedStreak: 0 });
+    expect(o.completesAppointment).toBe(true);
+    expect(o.nextTask).toBeUndefined();
+  });
+
+  it("arama kaydı üretmez ve ulaşılamama sayacına dokunmaz", () => {
+    const o = decideVisitOutcome(biz({ failedStreak: 2 }), { result: "kapali" }, TODAY);
+    expect(o.activities.every((a) => a.type !== "arama")).toBe(true);
+    expect(o.patch.failedStreak).toBeUndefined();
+    expect(o.completesAppointment).toBe(false);
+  });
+
+  it("aşamayı geri çekmez", () => {
+    const o = decideVisitOutcome(biz({ salesStage: "teklif_gonderildi" }), { result: "doktorla_gorusuldu" }, TODAY);
+    expect(o.patch.salesStage).toBeUndefined();
+  });
+
+  it("tekrar ara tarihi takip görevi açar; geçmiş tarih reddedilir", () => {
+    const o = decideVisitOutcome(biz(), { result: "sekreterle_gorusuldu", nextDate: "2026-11-13", nextTime: "10:00" }, TODAY);
+    expect(o.nextTask).toEqual({ reason: "planlandi", dueDate: "2026-11-13", dueTime: "10:00" });
+    expect(o.patch).toMatchObject({ salesStage: "iletisim_kuruldu", nextActionDate: "2026-11-13" });
+    expect(() => decideVisitOutcome(biz(), { result: "kapali", nextDate: "2026-11-01" }, TODAY)).toThrow(RuleError);
+  });
+
+  it("ilgilenmiyor kliniği listelerden çıkaracak duruma alır", () => {
+    expect(decideVisitOutcome(biz(), { result: "ilgilenmiyor" }, TODAY).patch.callStatus).toBe("ilgilenmiyor");
+    expect(visitSummary({ result: "ilgilenmiyor", note: "Kendi sekreteri var" })).toBe("Ziyaret: ilgilenmiyor. Kendi sekreteri var");
+  });
+
+  it("demo deposunda ziyaret arama sayısına girmez", async () => {
+    const repo = getDemoRepository();
+    const [b] = await repo.listBusinesses({});
+    const before = (await repo.getHome()).counts.callsToday;
+    await repo.recordVisit(b.id, { result: "kapali" });
+    expect((await repo.getHome()).counts.callsToday).toBe(before);
+    const history = await repo.listContactHistory();
+    expect(history.find((a) => a.businessId === b.id && a.type === "ziyaret")?.visitResult).toBe("kapali");
+  });
+});
+
+describe("saha planı: önce randevu", () => {
+  const cay = biz({ id: "cay-1", name: "Çayyolu 1", address: "Osmanağa Konakları, Ümitköy" });
+  const cay2 = biz({ id: "cay-2", name: "Çayyolu 2", address: "2494. Sk., Ümitköy" });
+  const cay3 = biz({ id: "cay-3", name: "Çayyolu 3", address: "Alacaatlı" });
+  const cay4 = biz({ id: "cay-4", name: "Çayyolu 4", address: "Yaşamkent" });
+  const appt = (b: Business, startsAt: string, over: Partial<Appointment> = {}): AppointmentItem => ({
+    business: b,
+    appointment: { id: `a-${b.id}`, businessId: b.id, startsAt, meetingType: "yuz_yuze", status: "planlandi", reminderMinutes: 30, ...over },
+  });
+  const visit: Activity = { id: "v1", businessId: "cay-3", at: "2026-11-12T09:00:00Z", type: "ziyaret", visitResult: "kapali" };
+
+  it("randevular o günün altında, randevulu ve ziyaret edilenler aranacaklarda değil", () => {
+    const route = buildFieldRoute([cay, cay2, cay3, cay4], () => true);
+    const plan = buildFieldPlan(
+      route.days,
+      [
+        appt(cay, "2026-11-12T11:00:00Z"), // Per 14:00
+        appt(cay2, "2026-11-20T08:00:00Z"), // saha günü dışında
+        appt(cay4, "2026-11-12T07:00:00Z", { meetingType: "telefon" }), // yüz yüze değil
+      ],
+      summarizeContacts([visit]),
+      new Date("2026-11-11T08:00:00Z"),
+    );
+    const day = plan.days.find((d) => d.view.day.id === "cayyolu")!;
+    expect(day.appointments.map((v) => v.business.id)).toEqual(["cay-1"]);
+    expect(day.toCall.map((s) => s.business.id)).toEqual(["cay-4"]);
+    expect(day.visited.map((s) => s.business.id)).toEqual(["cay-3"]);
+    expect(plan.otherAppointments.map((v) => v.business.id)).toEqual(["cay-2"]);
+  });
+
+  it("son arama ve son ziyaret ayrı tutulur", () => {
+    const m = summarizeContacts([
+      { id: "1", businessId: "x", at: "2026-11-10T08:00:00Z", type: "arama", callResult: "ulasilamadi" },
+      { id: "2", businessId: "x", at: "2026-11-11T08:00:00Z", type: "arama", callResult: "gorusuldu" },
+      { id: "3", businessId: "x", at: "2026-11-09T08:00:00Z", type: "ziyaret", visitResult: "kapali" },
+    ]);
+    expect(m.get("x")?.lastCall?.callResult).toBe("gorusuldu");
+    expect(m.get("x")?.lastVisit?.visitResult).toBe("kapali");
+  });
+});

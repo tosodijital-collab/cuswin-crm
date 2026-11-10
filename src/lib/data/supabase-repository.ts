@@ -7,9 +7,12 @@ import { decideImport } from "@/lib/domain/places";
 import {
   dataIssues,
   decideCallOutcome,
+  decideVisitOutcome,
   recomputeFailedStreak,
   RuleError,
   type CallOutcomeInput,
+  type VisitOutcomeInput,
+  visitSummary,
 } from "@/lib/domain/rules";
 import { addDays, istanbulToUtc, toDateStr } from "@/lib/domain/time";
 import type {
@@ -90,7 +93,9 @@ function toActivity(r: Row): Activity {
     businessId: String(r.business_id),
     at: String(r.at),
     type: r.type as Activity["type"],
-    callResult: str(r.call_result) as Activity["callResult"],
+    ...(r.type === "ziyaret"
+      ? { visitResult: str(r.call_result) as Activity["visitResult"] }
+      : { callResult: str(r.call_result) as Activity["callResult"] }),
     stage: str(r.stage) as Activity["stage"],
     note: str(r.note),
     voidedAt: str(r.voided_at),
@@ -295,6 +300,36 @@ export class SupabaseRepository implements CrmRepository {
         p_next_task: outcome.nextTask ?? null,
       }),
     );
+  }
+
+  async recordVisit(businessId: string, input: VisitOutcomeInput, appointmentId?: string): Promise<void> {
+    const detail = await this.getBusiness(businessId);
+    if (!detail) throw new RuleError("İşletme bulunamadı.");
+    const outcome = decideVisitOutcome(detail.business, input, toDateStr(new Date()));
+    const complete = appointmentId && outcome.completesAppointment;
+    await this.q(
+      this.db.rpc("apply_visit_outcome", {
+        p_business_id: businessId,
+        p_patch: outcome.patch,
+        p_activities: outcome.activities,
+        p_next_task: outcome.nextTask ?? null,
+        p_appointment_id: complete ? appointmentId : null,
+        p_appointment_outcome: complete ? visitSummary(input) : null,
+      }),
+    );
+  }
+
+  async listContactHistory(): Promise<Activity[]> {
+    const rows = await this.q(
+      this.db
+        .from("activities")
+        .select("id, business_id, at, type, call_result, stage, note, voided_at")
+        .in("type", ["arama", "ziyaret"])
+        .is("voided_at", null)
+        .order("at", { ascending: false })
+        .limit(5000),
+    );
+    return (rows as Row[]).map(toActivity);
   }
 
   async setSalesStage(businessId: string, stage: SalesStage, note?: string): Promise<void> {

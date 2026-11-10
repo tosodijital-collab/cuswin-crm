@@ -174,11 +174,17 @@ export function AppointmentQuickForm({
   currentStage,
   today,
   onDone,
+  defaultDate,
+  defaultLocation,
 }: {
   businessId: string;
   currentStage: SalesStage;
   today: string;
   onDone?: () => void;
+  /** Saha gününden açıldıysa o gün önceden seçili gelir. */
+  defaultDate?: string;
+  /** Yüz yüze randevuda kliniğin adresi; takvimde yol tarifi için. */
+  defaultLocation?: string;
 }) {
   const [state, action, pending] = useActionState<ActionState, FormData>(recordCallAction, { ok: false });
   const uid = useId();
@@ -198,7 +204,16 @@ export function AppointmentQuickForm({
       <div className="grid grid-cols-[1fr_8rem] gap-2">
         <div>
           <FieldLabel htmlFor={`${uid}-adate`}>Randevu tarihi</FieldLabel>
-          <input id={`${uid}-adate`} type="date" name="apptDate" min={today} required autoFocus className={inputClass} />
+          <input
+            id={`${uid}-adate`}
+            type="date"
+            name="apptDate"
+            min={today}
+            defaultValue={defaultDate && defaultDate >= today ? defaultDate : undefined}
+            required
+            autoFocus
+            className={inputClass}
+          />
         </div>
         <div>
           <FieldLabel htmlFor={`${uid}-atime`}>Saat</FieldLabel>
@@ -224,7 +239,7 @@ export function AppointmentQuickForm({
           </div>
           <div className="sm:col-span-2">
             <FieldLabel htmlFor={`${uid}-aloc`}>Bağlantı veya adres</FieldLabel>
-            <input id={`${uid}-aloc`} name="apptLocation" maxLength={400} className={inputClass} />
+            <input id={`${uid}-aloc`} name="apptLocation" maxLength={400} defaultValue={defaultLocation} className={inputClass} />
           </div>
           <div className="sm:col-span-2">
             <FieldLabel htmlFor={`${uid}-anote`}>Not</FieldLabel>

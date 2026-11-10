@@ -17,6 +17,7 @@ import {
   MEETING_TYPE_LABELS,
   SALES_STAGE_LABELS,
   SOURCE_LABELS,
+  VISIT_RESULT_LABELS,
 } from "@/lib/domain/labels";
 import { whatsappHref } from "@/lib/domain/field-route";
 import { getMaterial, type MaterialId } from "@/lib/domain/materials";
@@ -97,7 +98,7 @@ export function BusinessDetailScreen({ id }: { id: string }) {
                     {a.voidedAt ? (
                       <p className="mt-1 text-sm text-muted">Hatalı olarak işaretlendi, {formatDateTime(a.voidedAt)}.</p>
                     ) : (
-                      (a.type === "arama" || a.type === "not") && (
+                      (a.type === "arama" || a.type === "ziyaret" || a.type === "not") && (
                         <div className="mt-1">
                           <VoidActivityButton businessId={b.id} activityId={a.id} />
                         </div>
@@ -265,6 +266,8 @@ function activityTitle(a: Activity): string {
       return "Not";
     case "randevu":
       return "Randevu";
+    case "ziyaret":
+      return `Ziyaret: ${a.visitResult ? VISIT_RESULT_LABELS[a.visitResult] : ""}`;
     case "duzeltme":
       return "Düzeltme";
     case "sistem":

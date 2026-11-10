@@ -1,4 +1,4 @@
-import type { CallOutcomeInput } from "@/lib/domain/rules";
+import type { CallOutcomeInput, VisitOutcomeInput } from "@/lib/domain/rules";
 import type {
   Activity,
   Appointment,
@@ -100,6 +100,10 @@ export interface CrmRepository {
   listDistricts(): Promise<string[]>;
 
   recordCall(businessId: string, input: CallOutcomeInput): Promise<void>;
+  /** Saha ziyareti; appointmentId verilirse (ve kapalı değilse) o randevu "yapıldı" olur. */
+  recordVisit(businessId: string, input: VisitOutcomeInput, appointmentId?: string): Promise<void>;
+  /** Tüm işletmelerin geçerli arama ve ziyaret kayıtları, yeniden eskiye (Saha ekranı için). */
+  listContactHistory(): Promise<Activity[]>;
   setSalesStage(businessId: string, stage: SalesStage, note?: string): Promise<void>;
   addNote(businessId: string, note: string): Promise<void>;
   voidActivity(businessId: string, activityId: string): Promise<void>;

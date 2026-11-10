@@ -31,6 +31,10 @@ export type Source = (typeof SOURCES)[number];
 export const MEETING_TYPES = ["telefon", "cevrimici", "yuz_yuze"] as const;
 export type MeetingType = (typeof MEETING_TYPES)[number];
 
+/** Saha ziyaretinin sonucu. Arama sonucundan ayrıdır: ziyaret arama sayılmaz. */
+export const VISIT_RESULTS = ["doktorla_gorusuldu", "sekreterle_gorusuldu", "kapali", "ilgilenmiyor"] as const;
+export type VisitResult = (typeof VISIT_RESULTS)[number];
+
 export const APPOINTMENT_STATUSES = ["planlandi", "yapildi", "iptal"] as const;
 export type AppointmentStatus = (typeof APPOINTMENT_STATUSES)[number];
 
@@ -89,7 +93,7 @@ export type CallTask = {
   closedAt?: string;
 };
 
-export type ActivityType = "arama" | "asama" | "not" | "randevu" | "duzeltme" | "sistem";
+export type ActivityType = "arama" | "asama" | "not" | "randevu" | "duzeltme" | "sistem" | "ziyaret";
 
 export type Activity = {
   id: string;
@@ -97,6 +101,8 @@ export type Activity = {
   at: string;
   type: ActivityType;
   callResult?: CallStatus;
+  /** Yalnızca "ziyaret" türünde. */
+  visitResult?: VisitResult;
   stage?: SalesStage;
   note?: string;
   /** Hatalı girilmiş kayıt: silinmez, üstü çizili gösterilir ve hesaplamalara katılmaz. */

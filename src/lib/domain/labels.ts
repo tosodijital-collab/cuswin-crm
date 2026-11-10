@@ -5,6 +5,7 @@ import type {
   MeetingType,
   SalesStage,
   Source,
+  VisitResult,
 } from "./types";
 
 export const CATEGORY_LABELS: Record<Category, string> = {
@@ -32,6 +33,13 @@ export const SALES_STAGE_LABELS: Record<SalesStage, string> = {
   teklif_gonderildi: "Teklif gönderildi",
   musteri_oldu: "Müşteri oldu",
   olumsuz: "Olumsuz sonuçlandı",
+};
+
+export const VISIT_RESULT_LABELS: Record<VisitResult, string> = {
+  doktorla_gorusuldu: "Doktorla görüştüm",
+  sekreterle_gorusuldu: "Sekreterle görüştüm, broşür bıraktım",
+  kapali: "Kapalıydı, kimse yoktu",
+  ilgilenmiyor: "İlgilenmiyor",
 };
 
 export const SOURCE_LABELS: Record<Source, string> = {

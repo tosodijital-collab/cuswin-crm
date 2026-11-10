@@ -13,6 +13,7 @@ import type {
   Settings,
   TaskReason,
   TimeStr,
+  VisitResult,
 } from "./types";
 
 export const MAX_FAILED_STREAK = 3;
@@ -104,6 +105,94 @@ export function decideCallOutcome(
   patch.nextActionDate = nextTask?.dueDate;
   patch.nextActionTime = nextTask?.dueTime;
   return { patch, nextTask, activities };
+}
+
+export type VisitOutcomeInput = {
+  result: VisitResult;
+  note?: string;
+  stage?: SalesStage;
+  /** Doluysa bu güne "tekrar ara" görevi açılır (açık görev varsa onun yerine). */
+  nextDate?: DateStr;
+  nextTime?: TimeStr;
+};
+
+export type VisitOutcome = {
+  patch: Partial<Business>;
+  nextTask?: NewTask;
+  activities: Omit<Activity, "id" | "businessId" | "at">[];
+  /** Ziyaret bir randevuya bağlıysa randevu "yapıldı" sayılır mı (kapalıysa sayılmaz). */
+  completesAppointment: boolean;
+};
+
+const STAGE_ORDER: SalesStage[] = [
+  "yeni_aday",
+  "iletisim_kuruldu",
+  "randevu_alindi",
+  "gorusme_yapildi",
+  "teklif_gonderildi",
+  "musteri_oldu",
+];
+
+/** Aşamayı yalnızca ileri taşır (ör. teklif gönderilmiş kliniği "görüşme yapıldı"ya geri çekmez). */
+function advanceTo(current: SalesStage, target: SalesStage): SalesStage {
+  if (current === "olumsuz") return current;
+  return STAGE_ORDER.indexOf(target) > STAGE_ORDER.indexOf(current) ? target : current;
+}
+
+/**
+ * Saha ziyareti sonucu. Arama kurallarından bağımsızdır: ulaşılamama sayacını artırmaz, arama sayılmaz.
+ * Açık arama görevine yalnızca "tekrar ara" tarihi verildiğinde dokunulur.
+ */
+export function decideVisitOutcome(business: Business, input: VisitOutcomeInput, today: DateStr): VisitOutcome {
+  const { result, note, stage, nextDate, nextTime } = input;
+  if (nextDate && nextDate < today) throw new RuleError("Tekrar arama tarihi geçmişte olamaz.");
+
+  const activities: VisitOutcome["activities"] = [{ type: "ziyaret", visitResult: result, note }];
+  const patch: Partial<Business> = {};
+  let target = business.salesStage;
+
+  switch (result) {
+    case "doktorla_gorusuldu":
+      target = advanceTo(target, "gorusme_yapildi");
+      patch.callStatus = "gorusuldu";
+      patch.failedStreak = 0;
+      break;
+    case "sekreterle_gorusuldu":
+      target = advanceTo(target, "iletisim_kuruldu");
+      if (business.callStatus === "aranacak" || business.callStatus === "beklemede") patch.callStatus = "gorusuldu";
+      break;
+    case "kapali":
+      break;
+    case "ilgilenmiyor":
+      patch.callStatus = "ilgilenmiyor";
+      break;
+  }
+
+  const newStage = stage ?? target;
+  if (newStage !== business.salesStage) {
+    patch.salesStage = newStage;
+    activities.push({ type: "asama", stage: newStage });
+  }
+
+  let nextTask: NewTask | undefined;
+  if (nextDate) {
+    nextTask = { reason: "planlandi", dueDate: nextDate, dueTime: nextTime };
+    patch.nextActionDate = nextDate;
+    patch.nextActionTime = nextTime;
+  }
+  return { patch, nextTask, activities, completesAppointment: result !== "kapali" };
+}
+
+const VISIT_SUMMARY: Record<VisitResult, string> = {
+  doktorla_gorusuldu: "Ziyaret: doktorla görüşüldü",
+  sekreterle_gorusuldu: "Ziyaret: sekreterle görüşüldü",
+  kapali: "Ziyaret: kapalıydı",
+  ilgilenmiyor: "Ziyaret: ilgilenmiyor",
+};
+
+/** Randevu sonucuna yazılan kısa metin. */
+export function visitSummary(input: Pick<VisitOutcomeInput, "result" | "note">): string {
+  return [VISIT_SUMMARY[input.result], input.note].filter(Boolean).join(". ");
 }
 
 /** Kullanıcı aşama seçmediyse yalnızca bariz ilerlemeyi uygula. */

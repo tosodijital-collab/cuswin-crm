@@ -11,6 +11,7 @@ import {
   CATEGORIES,
   MEETING_TYPES,
   SALES_STAGES,
+  VISIT_RESULTS,
 } from "@/lib/domain/types";
 
 export type ActionState = { ok: boolean; message?: string; redirectTo?: string };
@@ -86,6 +87,25 @@ export async function recordCallAction(_: ActionState, formData: FormData): Prom
       reminderMinutes,
     });
     return "Kaydedildi, randevu oluşturuldu." + (await syncCalendarNow(appointmentId));
+  });
+}
+
+const visitSchema = z.object({
+  businessId: id,
+  appointmentId: z.union([id, z.literal("")]).optional().transform((v) => v || undefined),
+  result: z.enum(VISIT_RESULTS, "Ziyaret sonucunu seçin."),
+  note: optionalText(2000),
+  stage: z.union([z.enum(SALES_STAGES), z.literal("")]).optional().transform((v) => v || undefined),
+  nextDate: optionalDate,
+  nextTime: optionalTime,
+});
+
+/** Saha ziyareti: aramadan ayrı kaydedilir; randevuya bağlıysa randevu "yapıldı" olur. */
+export async function recordVisitAction(_: ActionState, formData: FormData): Promise<ActionState> {
+  return run(async () => {
+    const { businessId, appointmentId, ...input } = visitSchema.parse(fields(formData));
+    await getRepository().recordVisit(businessId, input, appointmentId);
+    return input.nextDate ? "Ziyaret kaydedildi, tekrar arama planlandı." : "Ziyaret kaydedildi.";
   });
 }
 
