@@ -145,3 +145,15 @@ describe("satış kitinden kurallar", () => {
     expect(all).not.toMatch(/hakan|genç klinik|11 sn|11 saniye/i);
   });
 });
+
+describe("telefon rehberi", () => {
+  it("pilot adı, 11 saniye ve 'daha çok hasta' vaadi yok; her senaryo tarih ister", async () => {
+    const pb = await import("@/lib/domain/sales-playbook");
+    const all = JSON.stringify([pb.PHONE_SCENARIOS, pb.PHONE_OBJECTIONS, pb.CLINIC_TYPE_LINES, pb.MISSED_CALL_TEXT, pb.PHONE_GOAL]);
+    expect(all).not.toMatch(/hakan|11 sn|11 saniye|daha çok hasta getir/i);
+    for (const s of pb.PHONE_SCENARIOS) {
+      expect(JSON.stringify(s)).toMatch(/14:00|hangi gün/);
+    }
+    expect(pb.confirmationText("12 Kasım 14:00")).toBe("Merhaba, 12 Kasım 14:00'te kliniğinizdeyiz. 10 dakika sürecek. Görüşmek üzere. Cuswin");
+  });
+});

@@ -15,6 +15,7 @@ export function VisitForm({
   today,
   appointmentId,
   onDone,
+  onSaved,
 }: {
   businessId: string;
   currentStage: SalesStage;
@@ -22,17 +23,21 @@ export function VisitForm({
   /** Ziyaret bir randevuya bağlıysa; kapalı değilse randevu "yapıldı" olur. */
   appointmentId?: string;
   onDone?: () => void;
+  /** Kayıt başarılı olunca (sıradaki adımı göstermek için). */
+  onSaved?: (result: VisitResult) => void;
 }) {
   const [state, action, pending] = useActionState<ActionState, FormData>(recordVisitAction, { ok: false });
   const [result, setResult] = useState<VisitResult>();
   const uid = useId();
 
   useEffect(() => {
-    if (state.ok && onDone) {
-      if (state.message) showToast(state.message);
-      onDone();
-    }
-  }, [state, onDone]);
+    if (!state.ok) return;
+    if (state.message) showToast(state.message);
+    if (result) onSaved?.(result);
+    onDone?.();
+    // Yalnızca kayıt sonucu değişince çalışmalı.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state]);
 
   return (
     <form action={action} className="grid gap-3">
