@@ -1,11 +1,14 @@
 // Saha (kapı kapı) rotası: işletmeleri adresteki bina, cadde ve mahalle adlarına göre ziyaret günlerine ayırır.
 // Saf fonksiyonlar; yeni taranan kayıtlar da adresine göre kendiliğinden doğru güne düşer.
+// Dizideki sıra eşleşme önceliğidir (ör. YDA Center, genel "Kızılırmak"tan önce); ziyaret sırası `date` alanıdır.
 
 import { CLOSED_CALL_STATUSES } from "./rules";
 import type { Business, SalesStage } from "./types";
 
 export type FieldDay = {
   id: string;
+  /** Ziyaret günü (Europe/Istanbul, "YYYY-MM-DD"). Ekranda günler bu tarihe göre sıralanır. */
+  date: string;
   title: string;
   area: string;
   note?: string;
@@ -17,21 +20,24 @@ export type FieldDay = {
 
 export const FIELD_DAYS: FieldDay[] = [
   {
-    id: "gun-1",
-    title: "1. gün · Çukurambar: YDA Center ve Usta Plaza",
+    id: "cukurambar-bina",
+    date: "2026-11-13",
+    title: "Çukurambar: YDA Center ve Usta Plaza",
     area: "Kızılırmak Mah. Çoğu aynı iki binada, kat kat gezilir.",
-    note: "En verimli gün: kliniklerin çoğu iki binada.",
+    note: "Kliniklerin çoğu iki binada.",
     keys: ["yda", "usta", "tepe prime"],
   },
   {
-    id: "gun-2",
-    title: "2. gün · Çukurambar: 1443. Cadde boyunca",
+    id: "cukurambar-cadde",
+    date: "2026-11-16",
+    title: "Çukurambar: 1443. Cadde boyunca",
     area: "Aynı cadde ve ara sokaklar, yürüyerek.",
     keys: ["muhsin yazicioglu", "1443", "1467", "1480", "1426", "paragon", "kizilirmak", "cukurambar"],
   },
   {
-    id: "gun-3",
-    title: "3. gün · Kavaklıdere, Gaziosmanpaşa, Kazım Özalp",
+    id: "kavaklidere",
+    date: "2026-11-18",
+    title: "Kavaklıdere, Gaziosmanpaşa, Kazım Özalp",
     area: "Tunalı Hilmi ve Uğur Mumcu Caddesi çevresi.",
     keys: [
       "tunali",
@@ -48,8 +54,9 @@ export const FIELD_DAYS: FieldDay[] = [
     ],
   },
   {
-    id: "gun-4",
-    title: "4. gün · Bahçelievler, Kızılay, Kocatepe, Öveçler, Oran",
+    id: "merkez",
+    date: "2026-11-19",
+    title: "Bahçelievler, Kızılay, Kocatepe, Öveçler, Oran",
     area: "Merkez ve güneydoğu.",
     note: "Hastane bünyesindeki merkezlerde karar verici farklı olabilir, en sona bırak.",
     keys: [
@@ -74,16 +81,18 @@ export const FIELD_DAYS: FieldDay[] = [
     ],
   },
   {
-    id: "gun-5",
-    title: "5. gün · Söğütözü Neorama ve Yenimahalle",
+    id: "sogutozu-yenimahalle",
+    date: "2026-11-17",
+    title: "Söğütözü Neorama ve Yenimahalle",
     area: "Önce Neorama Plaza, sonra İvedik, Demetevler ve Batıkent.",
     keys: ["neorama", "bestepe", "sogutozu", "yasam cd", "ivedik", "demet", "vatan cd", "batikent", "macun", "pamuklar"],
     districts: ["Yenimahalle"],
   },
   {
-    id: "gun-6",
-    title: "6. gün · Ümitköy, Çayyolu, Yaşamkent",
-    area: "Batı Çankaya. Osmanağa Konakları'nda cerrahlar yan yana.",
+    id: "cayyolu",
+    date: "2026-11-12",
+    title: "Çayyolu, Ümitköy, Yaşamkent",
+    area: "İlk gün, öncelikli bölge. Osmanağa Konakları'nda cerrahlar yan yana.",
     note: "Pilot klinik de bu bölgede. Rakamları anlatırken klinik adını hiçbir koşulda söyleme.",
     keys: ["osmanaga", "osman aga", "umitkoy", "umit", "alacaatli", "cayyolu", "konutkent", "yasamkent"],
   },
@@ -155,7 +164,7 @@ export function buildFieldRoute(businesses: Business[], filter: (b: Business) =>
     if (p) byDay.get(p.dayId)!.push({ business: b, order: p.order });
     else unplaced.push(b);
   }
-  const days = FIELD_DAYS.map((day) => ({
+  const days = [...FIELD_DAYS].sort((a, b) => a.date.localeCompare(b.date)).map((day) => ({
     day,
     stops: byDay
       .get(day.id)!

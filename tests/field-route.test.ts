@@ -22,24 +22,24 @@ const day = (address: string, district = "Çankaya") => placeOnRoute({ address, 
 
 describe("saha rotası: adres → gün", () => {
   it("gerçek CRM adreslerini doğru güne koyar", () => {
-    expect(day("YDA Center, Dumlupınar Blv. A3 Blok Kat:11 No:447 / C, Kızılırmak")).toBe("gun-1");
-    expect(day("1071 Usta Ankara İş ve Yaşam Merkezi, 1443. Cd. B Blok 25B/130")).toBe("gun-1");
-    expect(day("Mustafa Kemal Mahallesi, Dumlupınar Bulvarı Tepe Prime Avenue, B Blok")).toBe("gun-1");
-    expect(day("Kızılırmak Mahallesi, 1443. Cd. No: 49 D:E, Çukurambar")).toBe("gun-2");
-    expect(day("1467. Sk. no: 8 D:34 B, Çukurambar")).toBe("gun-2");
-    expect(day("Tunalı Hilmi Cd. No:88 D:114, Kavaklıdere")).toBe("gun-3");
-    expect(day("Uğur Mumcu Cd. No:6 Kat:4 D:30, Kazım Özalp")).toBe("gun-3");
-    expect(day("Gökçen iş hanı, Ziya Gökalp Cd. No:9 D:12 kat 7, Cumhuriyet")).toBe("gun-4");
-    expect(day("Turan Güneş Bulvarı, 630. Sk. No:6, Oran")).toBe("gun-4");
-    expect(day("1332. Sk., Aşağı Öveçler")).toBe("gun-4");
-    expect(day("Neorama İş Merkezi, Kat:13 No:61, Yaşam Cd., Beştepe")).toBe("gun-5");
-    expect(day("Osmanağa Konakları, 2494/3. Sk. No:9, Ümit")).toBe("gun-6");
-    expect(day("3047. Sk. No:13, Yaşamkent")).toBe("gun-6");
+    expect(day("YDA Center, Dumlupınar Blv. A3 Blok Kat:11 No:447 / C, Kızılırmak")).toBe("cukurambar-bina");
+    expect(day("1071 Usta Ankara İş ve Yaşam Merkezi, 1443. Cd. B Blok 25B/130")).toBe("cukurambar-bina");
+    expect(day("Mustafa Kemal Mahallesi, Dumlupınar Bulvarı Tepe Prime Avenue, B Blok")).toBe("cukurambar-bina");
+    expect(day("Kızılırmak Mahallesi, 1443. Cd. No: 49 D:E, Çukurambar")).toBe("cukurambar-cadde");
+    expect(day("1467. Sk. no: 8 D:34 B, Çukurambar")).toBe("cukurambar-cadde");
+    expect(day("Tunalı Hilmi Cd. No:88 D:114, Kavaklıdere")).toBe("kavaklidere");
+    expect(day("Uğur Mumcu Cd. No:6 Kat:4 D:30, Kazım Özalp")).toBe("kavaklidere");
+    expect(day("Gökçen iş hanı, Ziya Gökalp Cd. No:9 D:12 kat 7, Cumhuriyet")).toBe("merkez");
+    expect(day("Turan Güneş Bulvarı, 630. Sk. No:6, Oran")).toBe("merkez");
+    expect(day("1332. Sk., Aşağı Öveçler")).toBe("merkez");
+    expect(day("Neorama İş Merkezi, Kat:13 No:61, Yaşam Cd., Beştepe")).toBe("sogutozu-yenimahalle");
+    expect(day("Osmanağa Konakları, 2494/3. Sk. No:9, Ümit")).toBe("cayyolu");
+    expect(day("3047. Sk. No:13, Yaşamkent")).toBe("cayyolu");
   });
 
   it("Yenimahalle ilçesi adresteki mahalle adından önce gelir", () => {
-    expect(day("Vatan Cd. No:81, Demetevler", "Yenimahalle")).toBe("gun-5");
-    expect(day("Cumhuriyet Mah. 12. Sk.", "Yenimahalle")).toBe("gun-5");
+    expect(day("Vatan Cd. No:81, Demetevler", "Yenimahalle")).toBe("sogutozu-yenimahalle");
+    expect(day("Cumhuriyet Mah. 12. Sk.", "Yenimahalle")).toBe("sogutozu-yenimahalle");
   });
 
   it("sözcük ortasında eşleşmez, bilinmeyen adres rotaya girmez", () => {
@@ -57,7 +57,7 @@ describe("saha rotası: adres → gün", () => {
       ],
       () => true,
     );
-    expect(route.days[0].stops.map((s) => s.business.name)).toEqual(["YDA-1", "YDA-2", "Usta", "Tepe"]);
+    expect(route.days.find((d) => d.day.id === "cukurambar-bina")!.stops.map((s) => s.business.name)).toEqual(["YDA-1", "YDA-2", "Usta", "Tepe"]);
   });
 
   it("müşteri, olumsuz ve ilgilenmeyenleri çıkarır; beklemedekini tutar", () => {
@@ -73,9 +73,20 @@ describe("saha rotası: adres → gün", () => {
       ],
       () => true,
     );
-    expect(route.days[1].stops.map((s) => s.business.name).sort()).toEqual(["Aday", "Beklemede"]);
+    expect(route.days.find((d) => d.day.id === "cukurambar-cadde")!.stops.map((s) => s.business.name).sort()).toEqual(["Aday", "Beklemede"]);
     expect(route.excluded).toBe(3);
     expect(route.unplaced.map((b) => b.name)).toEqual(["Bilinmeyen"]);
+  });
+});
+
+describe("saha takvimi", () => {
+  it("perşembe Çayyolu ile başlar, günler tarih sırasıyla gelir", () => {
+    const route = buildFieldRoute([], () => true);
+    expect(route.days[0].day.id).toBe("cayyolu");
+    expect(route.days[0].day.date).toBe("2026-11-12");
+    const dates = route.days.map((d) => d.day.date);
+    expect(dates).toEqual([...dates].sort());
+    expect(new Set(dates).size).toBe(dates.length);
   });
 });
 

@@ -82,9 +82,10 @@ export default function FieldPage() {
           <a
             key={day.id}
             href={`#${day.id}`}
-            className="shrink-0 rounded-full border border-line bg-surface px-3 py-1.5 text-sm font-medium"
+            aria-current={day.date === today ? "date" : undefined}
+            className="shrink-0 rounded-full border border-line bg-surface px-3 py-1.5 text-sm font-medium aria-[current=date]:border-ink aria-[current=date]:bg-ink aria-[current=date]:text-white"
           >
-            {day.title.split(" · ")[0]} · {stops.length}
+            {dayLabel(day.date, "short")} · {stops.length}
           </a>
         ))}
       </nav>
@@ -115,6 +116,17 @@ export default function FieldPage() {
       </div>
     </div>
   );
+}
+
+/** "2026-11-12" → "12 Kas Per" (kısa) ya da "12 Kasım Perşembe" (uzun). Öğlen alınır: saat dilimi günü kaydırmasın. */
+function dayLabel(date: string, style: "short" | "long"): string {
+  const d = new Date(`${date}T12:00:00+03:00`);
+  return d.toLocaleDateString("tr-TR", {
+    timeZone: "Europe/Istanbul",
+    day: "numeric",
+    month: style === "short" ? "short" : "long",
+    weekday: style === "short" ? "short" : "long",
+  });
 }
 
 function DoorScript() {
@@ -179,14 +191,22 @@ function DaySection({
   const directions = dayDirectionsHref(stops);
   const done = stops.filter((s) => hasOutcome(s.business)).length;
   return (
-    <Panel id={day.id} className="scroll-mt-4 overflow-hidden" aria-label={day.title}>
+    <Panel
+      id={day.id}
+      className={`scroll-mt-4 overflow-hidden ${day.date === today ? "border-ink ring-1 ring-ink" : ""}`}
+      aria-label={`${dayLabel(day.date, "long")}: ${day.title}`}
+    >
       <div className="border-b border-line px-4 py-3">
-        <h2 className="flex items-baseline justify-between gap-3 text-[17px] font-semibold">
-          {day.title}
-          <span className="shrink-0 text-sm font-normal text-muted">
+        <p className="flex items-center justify-between gap-3 text-sm font-medium text-muted">
+          <span>
+            {dayLabel(day.date, "long")}
+            {day.date === today && <span className="ml-2 rounded bg-ink px-1.5 py-0.5 text-xs text-white">Bugün</span>}
+          </span>
+          <span className="shrink-0 font-normal">
             {done}/{stops.length}
           </span>
-        </h2>
+        </p>
+        <h2 className="mt-0.5 text-[17px] font-semibold">{day.title}</h2>
         <p className="mt-0.5 text-sm text-muted">{day.area}</p>
         {day.note && <p className="mt-2 rounded-md bg-late-soft px-3 py-2 text-sm text-late">{day.note}</p>}
         {directions && (
