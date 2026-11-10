@@ -4,13 +4,14 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { getBrowserSupabase } from "@/lib/supabase/client";
 
-const LINKS = [
+const LINKS: { href: string; label: string; short?: string }[] = [
   { href: "/", label: "Bugün" },
   { href: "/saha", label: "Saha" },
+  { href: "/dosyalar", label: "Dosyalar" },
   { href: "/kayitlar", label: "Kayıtlar" },
-  { href: "/randevular", label: "Randevular" },
+  { href: "/randevular", label: "Randevular", short: "Randevu" },
   { href: "/ayarlar", label: "Ayarlar" },
-] as const;
+];
 
 function isActive(pathname: string, href: string) {
   if (href === "/") return pathname === "/";
@@ -52,16 +53,16 @@ export function MainNav({ showSignOut }: { showSignOut?: boolean }) {
       </header>
       <nav
         aria-label="Ana menü"
-        className="fixed inset-x-0 bottom-0 z-20 grid grid-cols-5 border-t border-line bg-surface pb-[env(safe-area-inset-bottom)] md:hidden"
+        className="fixed inset-x-0 bottom-0 z-20 grid grid-cols-6 border-t border-line bg-surface pb-[env(safe-area-inset-bottom)] md:hidden"
       >
         {LINKS.map((l) => (
           <Link
             key={l.href}
             href={l.href}
             aria-current={isActive(pathname, l.href) ? "page" : undefined}
-            className="py-3.5 text-center text-[15px] text-muted aria-[current=page]:font-semibold aria-[current=page]:text-ink"
+            className="py-3.5 text-center text-[14px] text-muted aria-[current=page]:font-semibold aria-[current=page]:text-ink"
           >
-            {l.label}
+            {l.short ?? l.label}
           </Link>
         ))}
       </nav>

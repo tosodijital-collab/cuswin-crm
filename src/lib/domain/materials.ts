@@ -1,0 +1,65 @@
+// Müşteriye ve iş ortaklarına gönderilen PDF'ler ve yanlarındaki hazır mesajlar.
+// Dosyalar public/dosyalar altında: herkese açık yayınlanır, bu yüzden yalnızca dışarıya gönderilecek
+// belgeler burada durur (iç kullanım saha kiti burada yok).
+
+export type MaterialId = "tanitim" | "brosur" | "teklif" | "is-ortakligi";
+
+export type Material = {
+  id: MaterialId;
+  title: string;
+  /** Paylaşılırken karşı tarafta görünen dosya adı. */
+  fileName: string;
+  path: string;
+  pages: string;
+  /** Ne zaman gönderilir. */
+  when: string;
+  /** Dosyayla birlikte gönderilecek hazır mesaj. */
+  message: string;
+};
+
+export const MATERIALS: Material[] = [
+  {
+    id: "tanitim",
+    title: "Tanıtım dosyası",
+    fileName: "Cuswin-Tanitim-Dosyasi.pdf",
+    path: "/dosyalar/cuswin-tanitim.pdf",
+    pages: "11 sayfa",
+    when: "Ziyaretten sonra aynı gün ya da \"tanıtımınız var mı?\" diyene.",
+    message:
+      "Merhaba, bugün vakit ayırdığınız için teşekkürler. Konuştuğumuz Cuswin tanıtım dosyası ekte. Kısaca: telefon, WhatsApp ve Instagram'dan gelen hastaya 3 saniyede cevap verip randevuya çeviriyor ve sonrasında takip ediyor. Kurulumu konuşmak için bu hafta hangi gün uygun?",
+  },
+  {
+    id: "brosur",
+    title: "Tek sayfa broşür",
+    fileName: "Cuswin-Brosur.pdf",
+    path: "/dosyalar/cuswin-brosur.pdf",
+    pages: "1 sayfa",
+    when: "Kapıda elden bırakılır (basılı). Fuarda tanışılana aynı gün WhatsApp'tan.",
+    message:
+      "Merhaba, bugün tanıştık. Konuştuğumuz Cuswin'in tek sayfalık özeti ekte. Bu hafta kliniğinizde 10 dakikalık bir gösterim için hangi gün uygun?",
+  },
+  {
+    id: "teklif",
+    title: "Teklif şablonu",
+    fileName: "Cuswin-Teklif.pdf",
+    path: "/dosyalar/cuswin-teklif.pdf",
+    pages: "2 sayfa",
+    when: "Demo yapıldı ve klinik \"teklif gönderin\" dedi. Doldurulup tanıtım dosyasıyla birlikte gönderilir.",
+    message:
+      "Merhaba, konuştuğumuz Cuswin teklifi ekte. Kurulum 3 gün sürüyor, siz onay vermeden hiçbir şey açılmıyor. Hangi gün başlayalım?",
+  },
+  {
+    id: "is-ortakligi",
+    title: "İş ortaklığı dosyası",
+    fileName: "Cuswin-Is-Ortakligi.pdf",
+    path: "/dosyalar/cuswin-is-ortakligi.pdf",
+    pages: "5 sayfa",
+    when: "Kliniklere çalışan ajans ya da aracı iş birliği istediğinde.",
+    message:
+      "Merhaba, iş ortaklığı dosyamız ekte. Kısaca: müşterinize lead değil randevu teslim etmenizi sağlıyoruz. Kurulum ve destek bizden. 30 dakikalık bir görüşmede size uygun modeli birlikte belirleyelim. Bu hafta hangi gün uygun?",
+  },
+];
+
+export function getMaterial(id: MaterialId): Material {
+  return MATERIALS.find((m) => m.id === id)!;
+}

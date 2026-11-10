@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import { AppointmentControls, CalendarStatus, NewAppointmentToggle } from "@/components/appointment-forms";
 import { NoteForm, StageForm, VoidActivityButton } from "@/components/business-forms";
 import { AppointmentQuickToggle, CallOutcomeForm } from "@/components/call-outcome-form";
+import { ShareMaterialButton } from "@/components/share-material";
 import { CallStatusBadge, EmptyState, LoadState, Panel, StageBadge } from "@/components/ui";
 import { useData } from "@/lib/client/refresh";
 import { getRepository } from "@/lib/data";
@@ -17,6 +18,8 @@ import {
   SALES_STAGE_LABELS,
   SOURCE_LABELS,
 } from "@/lib/domain/labels";
+import { whatsappHref } from "@/lib/domain/field-route";
+import { getMaterial, type MaterialId } from "@/lib/domain/materials";
 import { MAX_FAILED_STREAK } from "@/lib/domain/rules";
 import { addDays, formatDateTime, formatShortDate, relativeDay, toDateStr, toTimeStr } from "@/lib/domain/time";
 import type { Activity } from "@/lib/domain/types";
@@ -162,6 +165,9 @@ export function BusinessDetailScreen({ id }: { id: string }) {
                   ? `${relativeDay(b.nextActionDate, today)}${b.nextActionTime ? `, ${b.nextActionTime}` : ""}`
                   : "Planlanmadı"}
               </Info>
+              <Info label="Gönder">
+                <SendMaterials phone={b.phone} />
+              </Info>
               <Info label="Kaynak">
                 {SOURCE_LABELS[b.source]}
                 <span className="block text-sm text-muted">
@@ -208,6 +214,34 @@ export function BusinessDetailScreen({ id }: { id: string }) {
           </Panel>
         </div>
       </div>
+    </div>
+  );
+}
+
+const SEND: { id: MaterialId; label: string }[] = [
+  { id: "tanitim", label: "Tanıtım" },
+  { id: "brosur", label: "Broşür" },
+  { id: "teklif", label: "Teklif" },
+];
+
+/** Kliniğe PDF ve hazır mesaj: WhatsApp sohbeti (cep numarasıysa) ve telefonun paylaşım penceresi. */
+function SendMaterials({ phone }: { phone?: string }) {
+  const btn =
+    "inline-flex min-h-10 items-center justify-center whitespace-nowrap rounded-md border border-line px-3 text-[15px] font-medium hover:bg-paper";
+  const wa = whatsappHref(phone, getMaterial("tanitim").message);
+  return (
+    <div className="mt-1 grid gap-2">
+      {wa && (
+        <a href={wa} target="_blank" rel="noopener noreferrer" className={`${btn} border-call/40 text-call hover:bg-call-soft`}>
+          WhatsApp&apos;ta mesaj aç
+        </a>
+      )}
+      <div className="grid grid-cols-3 gap-2">
+        {SEND.map((s) => (
+          <ShareMaterialButton key={s.id} material={getMaterial(s.id)} label={s.label} className={btn} />
+        ))}
+      </div>
+      <p className="text-sm text-muted">PDF düğmeleri paylaşım penceresini açar; mesaj da yanında gider.</p>
     </div>
   );
 }

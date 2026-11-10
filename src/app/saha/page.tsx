@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useState, type ReactNode } from "react";
 import { AppointmentQuickForm, CallOutcomeForm } from "@/components/call-outcome-form";
+import { ShareMaterialButton } from "@/components/share-material";
 import { Badge, CallStatusBadge, EmptyState, LoadState, PageTitle, Panel, StageBadge } from "@/components/ui";
 import { useData } from "@/lib/client/refresh";
 import { getRepository } from "@/lib/data";
@@ -15,6 +16,7 @@ import {
   type FieldDayView,
 } from "@/lib/domain/field-route";
 import { CATEGORY_LABELS } from "@/lib/domain/labels";
+import { getMaterial } from "@/lib/domain/materials";
 import { formatDateTime, toDateStr } from "@/lib/domain/time";
 import type { Business } from "@/lib/domain/types";
 
@@ -27,8 +29,7 @@ const SEGMENTS: Record<Segment, { label: string; match: (b: Business) => boolean
 };
 
 const VISIT_NOTE = "Yüz yüze ziyaret. ";
-const FOLLOW_UP_TEXT =
-  "Merhaba, bugün kliniğinize uğrayan Cuswin'den Özkan Toso. Konuştuğumuz tanıtım dosyasını gönderiyorum. Uygun olduğunuz bir gün 10 dakikada canlı gösterebilirim.";
+const tanitim = getMaterial("tanitim");
 
 export default function FieldPage() {
   const repo = getRepository();
@@ -141,7 +142,7 @@ function DoorScript() {
           <Fact value="%93" label="randevuya gelme" />
         </dl>
         <Script title="Sekretere">
-          Merhaba, ben Özkan, Cuswin&apos;in kurucusuyum. Kliniklere gelen telefon, WhatsApp ve Instagram mesajlarına cevap
+          Merhaba, ben [adın], Cuswin&apos;den. Kliniklere gelen telefon, WhatsApp ve Instagram mesajlarına cevap
           veren bir sistem kurduk. Doktor bey/hanım müsait mi? Değilse 10 dakikalık bir randevu alabilir miyim?
         </Script>
         <Script title="Doktora açılış">
@@ -251,7 +252,7 @@ function StopRow({
   const [open, setOpen] = useState<false | "sonuc" | "randevu">(false);
   const close = useCallback(() => setOpen(false), []);
   const tel = telHref(b.phone);
-  const wa = whatsappHref(b.phone, FOLLOW_UP_TEXT);
+  const wa = whatsappHref(b.phone, tanitim.message);
   const visited = hasOutcome(b);
   const btn = "inline-flex min-h-11 items-center justify-center whitespace-nowrap rounded-md border border-line px-2 text-[15px] font-medium hover:bg-paper sm:px-3";
 
@@ -305,10 +306,15 @@ function StopRow({
               Randevu aldım
             </button>
             {wa && (
-              <a href={wa} target="_blank" rel="noopener noreferrer" className={`${btn} col-span-2 border-call/40 text-call hover:bg-call-soft`}>
-                WhatsApp&apos;tan takip mesajı
+              <a href={wa} target="_blank" rel="noopener noreferrer" className={`${btn} border-call/40 text-call hover:bg-call-soft`}>
+                WhatsApp mesajı
               </a>
             )}
+            <ShareMaterialButton
+              material={tanitim}
+              label="Tanıtımı gönder"
+              className={`${btn} ${wa ? "" : "col-span-2"} border-call/40 text-call hover:bg-call-soft`}
+            />
           </div>
         </div>
       </div>

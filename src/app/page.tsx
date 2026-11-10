@@ -9,6 +9,7 @@ import { EmptyState, LoadState, Panel } from "@/components/ui";
 import { useData } from "@/lib/client/refresh";
 import { getRepository, type TaskView } from "@/lib/data";
 import { CALL_STATUS_LABELS, MEETING_TYPE_LABELS } from "@/lib/domain/labels";
+import { FIELD_DAYS } from "@/lib/domain/field-route";
 import { isPausedOn } from "@/lib/domain/rules";
 import { formatLongDate, formatTime, relativeDay, toDateStr } from "@/lib/domain/time";
 
@@ -57,6 +58,8 @@ export default function HomePage() {
           <PauseControl pause={settings.pause} today={today} compact />
         </div>
       </div>
+
+      <FieldDayCard today={today} />
 
       <dl className="mb-6 grid grid-cols-5 gap-px overflow-hidden rounded-lg border border-line bg-line">
         <Stat short="Yeni" label="Kalan yeni aday" value={`${counts.newRemaining}/${counts.newTotal}`} />
@@ -131,6 +134,33 @@ export default function HomePage() {
         </Section>
       </div>
     </div>
+  );
+}
+
+/** Bugünün (yoksa sıradaki) saha günü: tek dokunuşla Saha ekranındaki o güne gider. */
+function FieldDayCard({ today }: { today: string }) {
+  const day = [...FIELD_DAYS].sort((a, b) => a.date.localeCompare(b.date)).find((d) => d.date >= today);
+  if (!day) return null;
+  const isToday = day.date === today;
+  const label = new Date(`${day.date}T12:00:00+03:00`).toLocaleDateString("tr-TR", {
+    timeZone: "Europe/Istanbul",
+    day: "numeric",
+    month: "long",
+    weekday: "long",
+  });
+  return (
+    <Link
+      href={`/saha#${day.id}`}
+      className={`mb-6 flex items-center justify-between gap-3 rounded-lg border px-4 py-3 ${isToday ? "border-ink bg-ink text-white" : "border-line bg-surface"}`}
+    >
+      <span>
+        <span className={`block text-sm ${isToday ? "text-white/80" : "text-muted"}`}>
+          {isToday ? "Bugün sahadasın" : `Sıradaki saha günü: ${label}`}
+        </span>
+        <span className="block font-semibold">{day.title}</span>
+      </span>
+      <span aria-hidden className="text-lg">›</span>
+    </Link>
   );
 }
 
