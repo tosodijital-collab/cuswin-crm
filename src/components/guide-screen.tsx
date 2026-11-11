@@ -24,23 +24,25 @@ export function GuideScreen({ initial = "telefon" }: { initial?: GuideTab }) {
       <div
         role="tablist"
         aria-label="Rehber bölümleri"
-        className="sticky top-0 z-10 -mx-4 mb-4 grid grid-cols-4 gap-1 border-b border-line bg-paper/95 px-4 py-2 backdrop-blur"
+        className="sticky top-0 z-10 -mx-4 mb-4 border-b border-line bg-paper/95 px-4 py-2 backdrop-blur"
       >
-        {TABS.map((t) => (
-          <button
-            key={t.id}
-            type="button"
-            role="tab"
-            aria-selected={tab === t.id}
-            onClick={() => {
-              setTab(t.id);
-              window.scrollTo({ top: 0 });
-            }}
-            className="min-h-11 rounded-md text-[15px] text-muted aria-selected:bg-ink aria-selected:font-medium aria-selected:text-white"
-          >
-            {t.label}
-          </button>
-        ))}
+        <div className="grid grid-cols-4 gap-1 rounded-xl border border-line bg-surface p-1">
+          {TABS.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              role="tab"
+              aria-selected={tab === t.id}
+              onClick={() => {
+                setTab(t.id);
+                window.scrollTo({ top: 0 });
+              }}
+              className="min-h-12 rounded-lg text-[15px] font-medium text-muted active:bg-paper aria-selected:bg-ink aria-selected:font-semibold aria-selected:text-white"
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
       </div>
       <Body />
     </div>

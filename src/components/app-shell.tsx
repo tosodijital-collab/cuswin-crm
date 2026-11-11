@@ -48,7 +48,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
       )}
       <MainNav showSignOut={configured && auth === "hazir"} />
-      <main className="mx-auto w-full max-w-6xl px-4 pb-28 pt-5 md:pb-12">
+      <main className="mx-auto w-full max-w-6xl px-4 pb-32 pt-5 md:pb-12">
         {auth === "hazir" ? (
           children
         ) : auth === "yetkisiz" ? (

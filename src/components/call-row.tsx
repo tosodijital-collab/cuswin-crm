@@ -8,6 +8,7 @@ import { CALL_STATUS_LABELS, CATEGORY_LABELS } from "@/lib/domain/labels";
 import { MAX_FAILED_STREAK } from "@/lib/domain/rules";
 import type { Activity, Business, CallTask } from "@/lib/domain/types";
 import { AppointmentQuickForm, CallOutcomeForm } from "./call-outcome-form";
+import { CallScript } from "./call-script";
 import { FormMessage } from "./ui";
 
 export type CallRowData = {
@@ -21,7 +22,7 @@ export type CallRowData = {
 
 export function CallRow({ row, today, tone }: { row: CallRowData; today: string; tone?: "late" }) {
   const { business: b } = row;
-  const [open, setOpen] = useState<false | "sonuc" | "randevu">(false);
+  const [open, setOpen] = useState<false | "arama" | "sonuc" | "randevu">(false);
   const close = useCallback(() => setOpen(false), []);
   const [quick, quickAction, quickPending] = useActionState<ActionState, FormData>(recordCallAction, { ok: false });
   const tel = telHref(b.phone);
@@ -49,7 +50,8 @@ export function CallRow({ row, today, tone }: { row: CallRowData; today: string;
           {tel ? (
             <a
               href={tel}
-              className="col-span-3 inline-flex min-h-11 items-center justify-center gap-2 whitespace-nowrap rounded-md bg-call px-3.5 text-[15px] font-semibold tabular-nums text-white hover:bg-call/90"
+              onClick={() => setOpen("arama")}
+              className="col-span-3 inline-flex min-h-12 items-center justify-center gap-2 whitespace-nowrap rounded-md bg-call px-3.5 text-[15px] font-semibold tabular-nums text-white hover:bg-call/90"
             >
               <PhoneIcon />
               {formatPhone(b.phone)}
@@ -94,7 +96,18 @@ export function CallRow({ row, today, tone }: { row: CallRowData; today: string;
       )}
       {open && (
         <div className="border-t border-dashed border-line bg-paper/60 px-4 py-4">
-          {open === "randevu" ? (
+          {open === "arama" ? (
+            <>
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <p className="text-[17px] font-semibold">Ne diyeceğim</p>
+                <button type="button" onClick={close} className="min-h-11 px-2 text-[15px] text-muted">
+                  Kapat
+                </button>
+              </div>
+              <CallScript business={b} />
+              <p className="mt-4 text-sm text-muted">Bitince yukarıdan sonucu gir: Ulaşılamadı · Randevu aldım · Sonuç gir.</p>
+            </>
+          ) : open === "randevu" ? (
             <AppointmentQuickForm businessId={b.id} currentStage={b.salesStage} today={today} onDone={close} />
           ) : (
             <CallOutcomeForm businessId={b.id} currentStage={b.salesStage} today={today} onDone={close} autoFocus />
@@ -107,7 +120,17 @@ export function CallRow({ row, today, tone }: { row: CallRowData; today: string;
 
 function PhoneIcon() {
   return (
-    <svg aria-hidden width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      aria-hidden
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2z" />
     </svg>
   );

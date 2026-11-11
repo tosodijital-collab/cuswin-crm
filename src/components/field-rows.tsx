@@ -15,6 +15,7 @@ import { confirmationText, FOLLOW_UPS, MISSED_CALL_TEXT } from "@/lib/domain/sal
 import { addDays, formatDateTime, formatTime, relativeDay, toDateStr } from "@/lib/domain/time";
 import type { Business, VisitResult } from "@/lib/domain/types";
 import { AppointmentQuickForm, CallOutcomeForm } from "./call-outcome-form";
+import { CallScript } from "./call-script";
 import { ShareMaterialButton } from "./share-material";
 import { showToast } from "./toast";
 import { Badge, FieldLabel, FormMessage, inputClass, StageBadge } from "./ui";
@@ -76,7 +77,15 @@ function AfterVisit({ business: b, result, onClose }: { business: Business; resu
 }
 
 /** Randevulu ziyaret: önce yol, sonra sonuç. */
-export function AppointmentRow({ item: { appointment: a, business: b }, today, showDate }: { item: AppointmentItem; today: string; showDate?: boolean }) {
+export function AppointmentRow({
+  item: { appointment: a, business: b },
+  today,
+  showDate,
+}: {
+  item: AppointmentItem;
+  today: string;
+  showDate?: boolean;
+}) {
   const [open, setOpen] = useState<false | "sonuc" | "sonra">(false);
   const [saved, setSaved] = useState<VisitResult>();
   const close = useCallback(() => setOpen((v) => (v === "sonuc" ? false : v)), []);
@@ -184,7 +193,15 @@ function CallLaterForm({ businessId, today, onDone }: { businessId: string; toda
       <div className="grid grid-cols-[1fr_7rem] gap-2">
         <div>
           <FieldLabel htmlFor={`later-${businessId}`}>Ne zaman arayayım?</FieldLabel>
-          <input id={`later-${businessId}`} type="date" name="nextDate" min={today} defaultValue={addDays(today, 1)} required className={inputClass} />
+          <input
+            id={`later-${businessId}`}
+            type="date"
+            name="nextDate"
+            min={today}
+            defaultValue={addDays(today, 1)}
+            required
+            className={inputClass}
+          />
         </div>
         <div>
           <FieldLabel htmlFor={`later-t-${businessId}`}>Saat</FieldLabel>
@@ -200,11 +217,54 @@ function CallLaterForm({ businessId, today, onDone }: { businessId: string; toda
   );
 }
 
-type CallPanel = "randevu" | "sonuc" | "sonra" | "ziyaret" | "diger";
+/** Arama sonucu seçenekleri: tek dokunuşluklar hemen kaydedilir, diğerleri ilgili formu açar. */
+function ResultOptions({
+  business: b,
+  onPick,
+  withAppointment,
+}: {
+  business: Business;
+  onPick: (p: CallPanel) => void;
+  withAppointment?: boolean;
+}) {
+  const wa = whatsappHref(b.phone, MISSED_CALL_TEXT);
+  const option = `${btn} w-full`;
+  return (
+    <>
+      <div className="grid grid-cols-2 gap-2">
+        {withAppointment && (
+          <button type="button" onClick={() => onPick("randevu")} className={`${primaryBtn} col-span-2 bg-meet hover:bg-meet/90`}>
+            Randevu aldım
+          </button>
+        )}
+        <QuickResult businessId={b.id} result="ulasilamadi" label="Ulaşılamadı" className={option} />
+        <button type="button" onClick={() => onPick("sonra")} className={option}>
+          Konuştum, sonra ara
+        </button>
+        <QuickResult businessId={b.id} result="ilgilenmiyor" label="İlgilenmiyor" className={option} />
+        <ShareMaterialButton material={tanitim} label="Tanıtımı gönder" className={`${option} border-call/40 text-call`} />
+        {wa && (
+          <a href={wa} target="_blank" rel="noopener noreferrer" className={`${option} border-call/40 text-call`}>
+            WhatsApp mesajı
+          </a>
+        )}
+        <button type="button" onClick={() => onPick("ziyaret")} className={option}>
+          Randevusuz uğradım
+        </button>
+        <button type="button" onClick={() => onPick("diger")} className={`${option} ${wa ? "col-span-2" : ""} text-muted`}>
+          Diğer sonuç
+        </button>
+      </div>
+      <p className="mt-2 text-sm text-muted">&quot;Bilgi gönderin&quot; derse Tanıtımı gönder, ama yine tarih iste.</p>
+    </>
+  );
+}
+
+type CallPanel = "arama" | "randevu" | "sonuc" | "sonra" | "ziyaret" | "diger";
 
 /**
  * Randevu almak için aranacak klinik. Üç düğme: Ara · Randevu aldım · Sonuç.
- * "Sonuç" açılınca tek dokunuşluk seçenekler; ayrıntılı form en sonda.
+ * "Ara"ya basınca numara çevrilir ve kartta konuşma açılır; altında "Nasıl bitti?" seçenekleri.
  */
 export function CallTargetRow({
   business: b,
@@ -222,9 +282,7 @@ export function CallTargetRow({
   const close = useCallback(() => setOpen(false), []);
   const toggle = (k: CallPanel) => setOpen((v) => (v === k ? false : k));
   const tel = telHref(b.phone);
-  const wa = whatsappHref(b.phone, MISSED_CALL_TEXT);
   const last = lastCallLabel(contact, today);
-  const option = `${btn} w-full`;
 
   return (
     <li className="border-b border-line last:border-b-0">
@@ -239,7 +297,12 @@ export function CallTargetRow({
         </BusinessHeader>
         <div className="mt-3 grid grid-cols-2 gap-2">
           {tel ? (
-            <a href={tel} className={`${primaryBtn} col-span-2 bg-call tabular-nums hover:bg-call/90`}>
+            <a
+              href={tel}
+              onClick={() => setOpen("arama")}
+              className={`${primaryBtn} col-span-2 min-h-14 bg-call text-[17px] tabular-nums hover:bg-call/90`}
+            >
+              <PhoneIcon />
               Ara · {formatPhone(b.phone)}
             </a>
           ) : (
@@ -256,7 +319,7 @@ export function CallTargetRow({
           <button
             type="button"
             onClick={() => toggle("sonuc")}
-            aria-expanded={open !== false && open !== "randevu"}
+            aria-expanded={open !== false && open !== "randevu" && open !== "arama"}
             className={`${btn} aria-expanded:bg-paper`}
           >
             Sonuç
@@ -276,30 +339,22 @@ export function CallTargetRow({
           />
         </Panelish>
       )}
-      {open === "sonuc" && (
+      {open === "arama" && (
         <Panelish>
-          <div className="grid grid-cols-2 gap-2">
-            <QuickResult businessId={b.id} result="ulasilamadi" label="Ulaşılamadı" className={option} />
-            <button type="button" onClick={() => setOpen("sonra")} className={option}>
-              Konuştum, sonra ara
-            </button>
-            <QuickResult businessId={b.id} result="ilgilenmiyor" label="İlgilenmiyor" className={option} />
-            <button type="button" onClick={() => setOpen("ziyaret")} className={option}>
-              Randevusuz uğradım
-            </button>
-            {wa && (
-              <a href={wa} target="_blank" rel="noopener noreferrer" className={`${option} border-call/40 text-call`}>
-                WhatsApp mesajı
-              </a>
-            )}
-            <ShareMaterialButton material={tanitim} label="Tanıtımı gönder" className={`${option} border-call/40 text-call`} />
-            <button type="button" onClick={() => setOpen("diger")} className={`${option} ${wa ? "col-span-2" : ""} text-muted`}>
-              Diğer sonuç
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <p className="text-[17px] font-semibold">Ne diyeceğim</p>
+            <button type="button" onClick={close} className="min-h-11 px-2 text-[15px] text-muted">
+              Kapat
             </button>
           </div>
-          <p className="mt-2 text-sm text-muted">
-            &quot;Bilgi gönderin&quot; derse Tanıtımı gönder, ama tarih iste. Ne diyeceğin: Rehber → Telefon.
-          </p>
+          <CallScript business={b} fieldDate={fieldDate} />
+          <p className="mb-2 mt-5 text-[17px] font-semibold">Nasıl bitti?</p>
+          <ResultOptions business={b} onPick={setOpen} withAppointment />
+        </Panelish>
+      )}
+      {open === "sonuc" && (
+        <Panelish>
+          <ResultOptions business={b} onPick={setOpen} />
         </Panelish>
       )}
       {open === "sonra" && (
@@ -354,7 +409,14 @@ export function VisitedRow({ business: b, today, contact }: { business: Business
           {FOLLOW_UPS.map((f) => {
             const href = whatsappHref(b.phone, f.text);
             return href ? (
-              <a key={f.id} href={href} target="_blank" rel="noopener noreferrer" title={f.when} className={`${btn} border-call/40 text-call`}>
+              <a
+                key={f.id}
+                href={href}
+                target="_blank"
+                rel="noopener noreferrer"
+                title={f.when}
+                className={`${btn} border-call/40 text-call`}
+              >
                 {f.label}
               </a>
             ) : null;
@@ -367,5 +429,23 @@ export function VisitedRow({ business: b, today, contact }: { business: Business
         </Panelish>
       )}
     </li>
+  );
+}
+
+function PhoneIcon() {
+  return (
+    <svg
+      aria-hidden
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2z" />
+    </svg>
   );
 }
