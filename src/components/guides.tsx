@@ -117,11 +117,11 @@ export function VisitGuide() {
   return (
     <div className="grid gap-3 text-[15px]">
       <dl className="grid gap-2 text-center">
-        <Fact value="%60" label="hasta mesajı mesai dışında geliyor (pilot klinik)" />
+        <Fact value="%53" label="hasta mesajı mesai dışında geliyor (pilot klinik)" />
       </dl>
       <p className="text-sm text-muted">&quot;Ankara&apos;da bir estetik ve KBB kliniği.&quot; Pilot kliniğin adını hiçbir koşulda söyleme.</p>
       <Step n={1} title="Açılış" time="30 sn">
-        Ankara&apos;da bir klinikte Cuswin&apos;i 1 aydır kullanıyoruz. Gelen hasta mesajlarının %60&apos;ı mesai saatleri dışında geliyor.
+        Ankara&apos;da bir klinikte Cuswin&apos;i 1 aydır kullanıyoruz. Gelen hasta mesajlarının %53&apos;ü mesai saatleri dışında geliyor.
         Sizde durum nasıl?
       </Step>
       <Step n={2} title="Sor ve dinle" time="2 dk">
