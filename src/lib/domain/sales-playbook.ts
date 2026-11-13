@@ -124,116 +124,170 @@ export function salesFunnel(businesses: Pick<Business, "salesStage">[]): { total
   return { total: businesses.length, lost: businesses.filter((b) => b.salesStage === "olumsuz").length, steps };
 }
 
-// ---------- Telefon: randevu alma senaryosu (Cuswin-Arama-Senaryosu.pdf ile aynı) ----------
+// ---------- Telefon: randevu alma senaryosu (Rehber → Telefon ve aramadaki kart) ----------
+// Metinlerde "{gün}" saha gününün adıyla değiştirilir (ör. "Cuma").
 
 export type Line = { who: string; text: string; tone?: "them" | "close" };
 export type Branch = { title: string; lines: Line[]; tip?: string };
+export type Question = { text: string; /** Cevaba göre ne yapacağın. */ listen: string };
+
+/** "{gün}" yerine günün adını koyar. */
+export function withDay(text: string, day: string): string {
+  return text.replaceAll("{gün}", day);
+}
 
 export const PHONE_GOAL =
-  "Telefonda tek amaç 10 dakikalık yüz yüze görüşme tarihi almak. Satış yapmıyorsun, ürünü anlatmıyorsun; ikna yüz yüze demoda olur.";
+  "Telefonda tek amaç: 10 dakikalık yüz yüze görüşme tarihi. Satma, uzun anlatma. Sor, sus, dinle; sonra iki saat seçeneği ver.";
 
 export const PHONE_FLOW = [
-  { step: "Açılış", text: "Kim olduğun ve neden aradığın, 15 saniye." },
-  { step: "Tek soru", text: "\"Akşam gelen mesajlara kim bakıyor?\"" },
-  { step: "İki seçenek", text: "\"Perşembe 14:00 mü, 16:00 mı?\"" },
-  { step: "Teyit", text: "Tarihi tekrar et, WhatsApp'tan teyit at." },
+  { step: "Açılış", text: "Kim olduğun, izin iste. 15 saniye." },
+  { step: "Sor", text: "3 kısa soru. Sor ve sus, cevabı dinle." },
+  { step: "Bağla", text: "Onun cevabını kullan: \"Tam bunun için arıyorum.\"" },
+  { step: "Tarih iste", text: "İki seçenek: \"14:00 mü, 16:00 mı?\"" },
+  { step: "Teyit", text: "Saati tekrar et, WhatsApp'tan teyit at." },
 ] as const;
 
-export const PHONE_SCENARIOS: { id: string; title: string; opening: Line; note?: string; branches: Branch[] }[] = [
+export type PhoneScenario = {
+  id: "sekreter" | "doktor";
+  title: string;
+  opening: string;
+  note: string;
+  questions: Question[];
+  bridge: string;
+  close: string;
+  confirm: string;
+  /** Sık karşılaşılan durumlar (yalnız sekreter). */
+  branches: Branch[];
+};
+
+export const PHONE_SCENARIOS: PhoneScenario[] = [
   {
     id: "sekreter",
     title: "Sekreter açtı",
-    opening: {
-      who: "Açılış",
-      text: "Merhaba, ben [adın], Cuswin'den. Kısa tutacağım. Kliniklere gelen telefon, WhatsApp ve Instagram mesajlarına cevap veren bir sistem kurduk; Ankara'da bir klinikte 1 aydır çalışıyor. Doktor bey/hanıma kliniğinizde 10 dakika yüz yüze göstermek istiyorum. Adınızı alabilir miyim?",
-    },
-    note: "Kurucu arıyorsa: \"ben Özkan, Cuswin'in kurucusuyum\". Sekreteri yanına al, adıyla hitap et.",
+    opening:
+      "Merhaba, iyi günler. Ben Özkan, Cuswin'in kurucusuyum. Çok kısa bir şey soracağım, bir dakikanızı alabilir miyim? Kiminle görüşüyorum?",
+    note: "Adını al ve hep adıyla hitap et. Sekreter kapıdaki bekçi değil, en büyük yardımcın: sorunu en iyi o biliyor.",
+    questions: [
+      {
+        text: "Gün içinde telefona ve WhatsApp'a siz mi bakıyorsunuz?",
+        listen: "\"Evet\" derse: \"Kolay gelsin, yoğun oluyordur.\" Onu yanına al.",
+      },
+      {
+        text: "Siz hastayla ilgilenirken telefon çalarsa ya da aynı anda birkaç mesaj gelirse ne oluyor?",
+        listen: "\"Bekliyor\", \"sonra dönüyoruz\" derse sorun bu. Aklında tut.",
+      },
+      {
+        text: "Akşam ve hafta sonu gelen mesajlara kim bakıyor?",
+        listen: "\"Kimse\" ya da \"sabah bakıyoruz\" derse hemen bağla.",
+      },
+    ],
+    bridge:
+      "Tam bunun için arıyorum. Sizin işinizi almıyor; siz yetişemediğinizde devreye giriyor. Hastaya saniyeler içinde cevap veriyor, randevuyu takvime yazıyor, sabah her şey önünüzde hazır oluyor.",
+    close:
+      "Bunu doktor bey/hanıma 10 dakikada göstermek istiyorum: kendi telefonundan hasta gibi yazacak, cevabı görecek. {gün} o bölgedeyim. 14:00 mü uygun, 16:00 mı?",
+    confirm:
+      "Not aldım: {gün} saat __, doktor bey/hanımla 10 dakika. Bu numaraya WhatsApp'tan teyit atıyorum. Çok teşekkürler, iyi çalışmalar.",
     branches: [
       {
         title: "\"Konu nedir?\" / \"Ne satıyorsunuz?\"",
         lines: [
           {
             who: "Sen",
-            text: "Siz hastayla ilgilenirken çalan telefona, öğle arasında ve akşam gelen mesajlara cevap veriyor, randevuyu takvime yazıyor. Sizin işinizi almıyor; yetişemediğiniz anlara bakıyor. Akşam ve hafta sonu gelen mesajlara şu an kim bakıyor?",
+            text: "Satmak için değil, göstermek için arıyorum. Kliniklere gelen telefon ve mesajlara siz yetişemediğinizde cevap veren bir sistem. Size bir şey sorayım: akşam gelen mesajlara kim bakıyor?",
           },
         ],
-        tip: "\"Kimse\" ya da \"ertesi sabah\" derse: \"Tam bunun için. Perşembe 14:00 mü uygun, 16:00 mı?\"",
+        tip: "Her cevabı bir soruyla bitir. Konuşmayı o yapsın.",
       },
       {
-        title: "\"Doktor ameliyatta / muayenede / yok\"",
+        title: "\"Doktor ameliyatta / müsait değil\"",
         lines: [
           {
             who: "Sen",
-            text: "Anlıyorum, rahatsız etmeyeyim. Randevuyu sizden alabilir miyim? Perşembe öğleden sonra o bölgedeyim: 14:00 mü daha uygun, 16:00 mı? 10 dakika sürecek.",
+            text: "Hiç rahatsız etmeyeyim. Randevuyu sizden alabilir miyim? {gün} o bölgedeyim, 10 dakika sürecek. 14:00 mü daha uygun, 16:00 mı?",
           },
           {
             who: "\"Doktora sormam lazım\" derse",
             tone: "them",
-            text: "Tabii. Perşembe 14:00'ü sizin için not ediyorum; doktor bey uygun değilse bana bu numaradan yazın. Ya da yarın 11:00'de sizi ben arayayım mı?",
+            text: "Tabii. {gün} 14:00'ü şimdilik yazıyorum. Yarın 11:00'de sizi arayıp teyit alayım, olur mu?",
           },
         ],
-        tip: "Her durumda bir tarih bırak: ya randevu ya geri arama saati (Sonuç → Konuştum, sonra ara).",
+        tip: "Her durumda bir saat bırak. Uygulamada: Nasıl bitti? → Sonra ara dedi.",
       },
       {
         title: "\"Bilgi gönderin\" / \"Mail atın\"",
         lines: [
           {
             who: "Sen",
-            text: "Hemen WhatsApp'tan tanıtım dosyasını atıyorum. Ama asıl farkı 10 dakikada doktor beyin kendi telefonundan yazıp cevabı görmesi; dosyada bu görünmüyor. Perşembe o bölgedeyim, 14:00'te uğrayayım mı?",
+            text: "Hemen WhatsApp'tan atıyorum. Bu numara WhatsApp'ta mı, yoksa hangi numaraya atayım? Yalnız dosyada asıl farkı göremezsiniz: doktor bey kendi telefonundan yazıp cevabı görüyor, 10 dakika. {gün} 14:00'te uğrayayım mı?",
           },
         ],
-        tip: "Sonuç → Tanıtımı gönder. Tarih yine yoksa Sonuç → Konuştum, sonra ara: 2 gün sonrası.",
+        tip: "Uygulamada: Bilgi istedi → numarayı yaz → WhatsApp'ta gönder. 2 gün sonra (hafta sonu atlanır) arama kendiliğinden planlanır.",
+      },
+      {
+        title: "\"Doktorun numarasını veremem\"",
+        lines: [
+          {
+            who: "Sen",
+            text: "Hiç gerek yok, randevuyu sizden almam yeterli. {gün} 14:00 mü uygun, 16:00 mı?",
+          },
+        ],
       },
     ],
   },
   {
     id: "doktor",
     title: "Doktor açtı",
-    opening: {
-      who: "Açılış",
-      text: "Merhaba Doktor Bey/Hanım, ben [adın], Cuswin'den. 30 saniyenizi alacağım. Ankara'da bir estetik kliniğinde 1 aydır çalışan bir sistemimiz var: 30 günde 2.934 mesaj ve arama gelmiş, yarısından fazlası mesai saatleri dışında. Mesai dışında gelen 464 konuşmanın 462'sine cevap verildi. Sizde akşam gelen mesajlara kim bakıyor?",
-    },
-    branches: [
+    opening: "Merhaba Doktor Bey/Hanım, ben Özkan, Cuswin'in kurucusuyum. 30 saniyenizi alıp bir şey sorabilir miyim?",
+    note: "Sorudan sonra sus. Sözünü kesme; ne kadar çok konuşursa o kadar iyi.",
+    questions: [
+      { text: "Günde aşağı yukarı kaç mesaj ve arama geliyor?", listen: "Rakamı not al; yüz yüze görüşmede kullanacaksın." },
+      // İkinci soru klinik türüne göre değişir (CLINIC_TYPE_LINES).
       {
-        title: "Kapanış",
-        lines: [
-          {
-            who: "Sen",
-            tone: "close",
-            text: "Bunu anlatmak yerine göstermek istiyorum: kendi telefonunuzdan hasta gibi yazacaksınız, cevabı göreceksiniz. 10 dakika. Perşembe 14:00 mü, 16:00 mı?",
-          },
-        ],
+        text: "Fiyat sorup bir daha yazmayan hastaya geri dönen oluyor mu?",
+        listen: "\"Hayır\" ya da \"vakit yok\" derse bağla.",
       },
     ],
+    bridge:
+      "Ankara'da bir estetik kliniğinde 1 aydır tam bunu çözüyoruz: mesai dışında gelen 464 konuşmanın 462'sine cevap verildi. Gelen hastayı kaçırmıyor, randevuyu takvime yazıyor, sonra takip ediyor. Kurulumu ben yapıyorum.",
+    close:
+      "Anlatmak yerine göstereyim: kendi telefonunuzdan hasta gibi yazacaksınız, cevabı göreceksiniz. 10 dakika. {gün} 14:00 mü uygun, 16:00 mı?",
+    confirm: "Harika: {gün} saat __, kliniğinizdeyim. Bu numaraya WhatsApp'tan teyit atıyorum. İyi çalışmalar.",
+    branches: [],
   },
 ];
 
 export const PHONE_OBJECTIONS: { q: string; a: string; app?: string }[] = [
   {
     q: "İlgilenmiyoruz.",
-    a: "Anlıyorum. Tek bir şey sorayım: akşam ve hafta sonu gelen mesajlara kim bakıyor? (Hâlâ hayırsa) Teşekkür ederim, iyi çalışmalar.",
-    app: "Sonuç → İlgilenmiyor",
+    a: "Anlıyorum. Tek bir şey sorup kapatacağım: akşam ve hafta sonu gelen mesajlara kim bakıyor? (Hâlâ hayır derse) Teşekkür ederim, iyi çalışmalar.",
+    app: "Nasıl bitti? → İlgilenmiyor",
   },
   {
     q: "Sekreterimiz var, yetişiyoruz.",
-    a: "Sekreteriniz kalıyor. Bu, ikinci hat çalarken, öğle arasında, akşam ve hafta sonu devreye giriyor. Pilot klinikte mesajların yarısından fazlası mesai dışında geldi. 10 dakikada görün, sonra karar verin.",
+    a: "Çok iyi, sekreteriniz kalıyor. Bu, onun yetişemediği anlara bakıyor: ikinci hat, öğle arası, akşam, hafta sonu. Pilot klinikte mesajların yarısından fazlası mesai dışında geldi. Sizde akşamları durum nasıl?",
   },
   {
     q: "Zaten bir sistemimiz / CRM'imiz var.",
-    a: "Çok iyi. CRM kaydı tutar, cevabı yine siz verirsiniz. Bu cevabı veriyor, aramayı karşılıyor, takibi yapıyor. Yan yana görmek için 10 dakika yeter.",
+    a: "Güzel. Peki o sistem hastaya kendisi cevap veriyor mu, yoksa kaydı mı tutuyor? (Dinle) Bu cevabı veriyor, aramayı karşılıyor, takibi yapıyor. Yan yana görmek için 10 dakika yeter.",
   },
-  { q: "Reklam ajansımız var.", a: "Ajansın getirdiği hastayı kaçırmamak için tam da bu var. İsterseniz ajansınızla da konuşurum." },
+  {
+    q: "Reklam ajansımız var.",
+    a: "Çok iyi. Ajansın getirdiği hasta yazınca kaç dakikada cevap alıyor? Bu, o hastayı kaçırmamak için var. İsterseniz ajansınızla da konuşurum.",
+  },
   {
     q: "Fiyatı ne?",
-    a: "Mesaj ve arama yoğunluğunuza göre değişiyor; görüşmede yoğunluğunuza bakıp net söylüyorum. Uydurma rakam vermek istemem. (Tarihe dön.)",
+    a: "Yoğunluğunuza göre değişiyor. Günde kaç mesaj geliyor? (Dinle) Görüşmede birlikte bakıp net söylüyorum, uydurma rakam vermek istemem. {gün} 14:00 mü, 16:00 mı?",
   },
   {
     q: "Yapay zeka mı? Hastalar sevmez.",
-    a: "Hasta kiminle konuştuğuna değil, cevap alıp almadığına bakıyor. Gece cevap alamayan hasta sabahı beklemiyor. Her konuşmayı siz görüyorsunuz, istediğiniz an devralıyorsunuz.",
+    a: "Hasta kiminle konuştuğuna değil, cevap alıp almadığına bakıyor. Gece cevap alamayan hasta sabahı beklemiyor. Her konuşmayı siz görüyorsunuz, istediğiniz an devralıyorsunuz. Kendi gözünüzle görmek ister misiniz?",
   },
-  { q: "Şu an çok yoğunuz.", a: "O yüzden 10 dakika. Kurulumla siz uğraşmıyorsunuz, biz yapıyoruz. Hangi gün daha sakin, ona göre geleyim." },
-  { q: "Sonra arayın.", a: "Tabii. Perşembe mi uygun, cuma mı? Saat? (Tarihsiz kapatma.)", app: "Sonuç → Konuştum, sonra ara" },
-  { q: "Bizi aramayın.", a: "Anlaşıldı, kaydınızı kapatıyorum. İyi çalışmalar.", app: "Sonuç → Diğer sonuç → Tekrar iletişim kurma" },
+  {
+    q: "Şu an çok yoğunuz.",
+    a: "O yüzden kısa tutuyorum. Kurulumla siz uğraşmıyorsunuz, biz yapıyoruz. Hangi gün daha sakin? Ona göre geleyim.",
+  },
+  { q: "Sonra arayın.", a: "Tabii. Ne zaman arayayım: yarın mı, {gün} mü? Saat kaç uygun?", app: "Nasıl bitti? → Sonra ara dedi" },
+  { q: "Bizi aramayın.", a: "Anlaşıldı, kaydınızı kapatıyorum. İyi çalışmalar.", app: "Nasıl bitti? → Diğer → Tekrar iletişim kurma" },
 ];
 
 export const CLINIC_TYPE_LINES: { id: string; title: string; hook: string; question: string; note: string }[] = [
@@ -241,30 +295,30 @@ export const CLINIC_TYPE_LINES: { id: string; title: string; hook: string; quest
     id: "estetik",
     title: "Estetik ve medikal estetik",
     hook: "Instagram'da gönderilerinizin altına \"fiyat?\" yazan hastalara kim, ne zaman dönüyor? Reklam veremediğiniz bir dönemde o mesajlar en değerli hastanız.",
-    question: "Botoks ya da dolgu soran biri akşam 22:00'de yazınca ne oluyor?",
+    question: "Akşam 22:00'de biri Instagram'dan \"dolgu ne kadar?\" diye yazınca ne oluyor?",
     note: "Pilot klinik bu alanda; rakamları rahatça kullan.",
   },
   {
     id: "sac",
     title: "Saç ekimi",
-    hook: "Saç ekiminde hasta karar vermeden önce birkaç kliniğe birden yazıyor: kaç greft, hangi teknik, fiyat. İlk cevap veren kliniğe gidiyor. Gece gelen o mesaja kaç saatte dönebiliyorsunuz?",
-    question: "Operasyondan sonra hastaya kontrol ve hatırlatma mesajlarını kim atıyor?",
+    hook: "Saç ekiminde hasta karar vermeden önce birkaç kliniğe birden yazıyor: kaç greft, hangi teknik, fiyat. İlk cevap veren kliniğe gidiyor.",
+    question: "Gece \"kaç greft, fiyat ne?\" diye yazan hastaya kaç saatte dönebiliyorsunuz?",
     note: "Dürüst ol: pilot klinik estetik ve KBB; saç ekiminde ilk klinikleri şimdi alıyoruz. Rakam uydurma.",
   },
   {
     id: "dis",
     title: "Diş",
     hook: "Hasta \"implant ne kadar?\" diye aradığında hat meşgulse ya da muayenedeyseniz o arama geri dönüyor mu? Cevapsız kalan arama, başka kliniğe giden hasta demek.",
-    question: "Gün içinde kaç arama cevapsız kalıyor, geri arıyor musunuz?",
+    question: "Muayenedeyken cevapsız kalan aramaları geri arayabiliyor musunuz?",
     note: "Pilot estetik kliniği, rakamlar oradan; dürüst söyle.",
   },
 ];
 
 /** Ulaşamayınca cep numarasına gönderilen WhatsApp mesajı (henüz görüşülmemiş klinik). */
 export const MISSED_CALL_TEXT =
-  "Merhaba, Cuswin'den yazıyorum. Sizi aradım, ulaşamadım. Kliniklere gelen telefon, WhatsApp ve Instagram mesajlarına cevap veren sistemimizi 10 dakikada yüz yüze göstermek istiyorum. Bu hafta hangi gün uygun?";
+  "Merhaba, ben Özkan, Cuswin'den. Az önce aradım, ulaşamadım. Kliniklere gelen telefon ve mesajlara, siz yetişemediğinizde cevap veren sistemimizi 10 dakikada yüz yüze göstermek istiyorum. Bu hafta hangi gün uygun olur?";
 
 /** Randevu teyidi: "Perşembe 12 Kasım saat 14:00'te kliniğinizdeyiz..." */
 export function confirmationText(when: string): string {
-  return `Merhaba, ${when}'te kliniğinizdeyiz. 10 dakika sürecek. Görüşmek üzere. Cuswin`;
+  return `Merhaba, ${when}'te kliniğinizdeyiz. 10 dakika sürecek. Görüşmek üzere. Özkan, Cuswin`;
 }

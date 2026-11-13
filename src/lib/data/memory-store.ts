@@ -1,7 +1,7 @@
 // Bellek içi DEMO deposu: Supabase ayarlı değilken tarayıcıda uydurma kayıtlarla çalışır, kalıcı değildir.
 // Testlerde boş başlatılarak kuralları doğrulamak için de kullanılır.
 
-import { normalizePhone, normalizeWebsite } from "@/lib/domain/contact-info";
+import { normalizePhone, normalizeWebsite, withWhatsapp } from "@/lib/domain/contact-info";
 import { decideImport } from "@/lib/domain/places";
 import {
   dataIssues,
@@ -256,6 +256,12 @@ export class MemoryRepository implements CrmRepository {
     return newId;
   }
 
+  async saveWhatsappNumber(businessId: string, phone: string): Promise<void> {
+    const b = this.mustBusiness(businessId);
+    const contacts = withWhatsapp(b, phone);
+    if (contacts) b.contacts = contacts;
+  }
+
   async updateBusiness(businessId: string, input: BusinessInput): Promise<void> {
     const b = this.mustBusiness(businessId);
     this.assertNoDuplicate(input, businessId);
@@ -484,7 +490,12 @@ export class MemoryRepository implements CrmRepository {
       website: input.website?.trim() || undefined,
       district: input.district || undefined,
       address: input.address?.trim() || undefined,
-      contacts: input.contacts.map((c) => ({ id: id(), name: c.name.trim(), role: c.role?.trim() || undefined })),
+      contacts: input.contacts.map((c) => ({
+        id: id(),
+        name: c.name.trim(),
+        role: c.role?.trim() || undefined,
+        phone: c.phone?.trim() || undefined,
+      })),
       reviewReason: issues.length ? issues.join(", ") : undefined,
     };
   }

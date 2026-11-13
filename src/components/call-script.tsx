@@ -1,15 +1,15 @@
 "use client";
 
-// "Ara"ya basınca kartın içinde açılan konuşma: kim açtıysa onun açılışı, kapanış cümlesi ve
-// "ne derse ne diyeceğim". Metinler Rehber → Telefon ve Cuswin-Arama-Senaryosu.pdf ile aynı.
+// "Ara"ya basınca kartın içinde açılan konuşma: açılış → sorular → bağla → tarih iste → teyit,
+// altında "ne derse ne diyeceğim". Metinler Rehber → Telefon ile aynı.
 
 import { useState } from "react";
 import { callScriptFor, type ScriptWho } from "@/lib/domain/call-script";
 import type { Business } from "@/lib/domain/types";
 
-export function CallScript({ business, fieldDate }: { business: Business; fieldDate?: string }) {
+export function CallScript({ business, today, fieldDate }: { business: Business; today: string; fieldDate?: string }) {
   const [who, setWho] = useState<ScriptWho>("sekreter");
-  const s = callScriptFor(business, who, fieldDate);
+  const s = callScriptFor(business, who, today, fieldDate);
 
   return (
     <div className="grid gap-3">
@@ -33,9 +33,28 @@ export function CallScript({ business, fieldDate }: { business: Business; fieldD
         ))}
       </div>
 
-      <Say label="1. Açılış" text={s.opening} />
-      {s.hook && <Say label="2. Soru" text={s.hook} />}
-      <Say label={s.hook ? "3. Kapanış: tarih iste" : "2. Kapanış: tarih iste"} text={s.close} strong />
+      <Say label="1. Açılış" text={s.opening} hint={s.note} />
+
+      <div className="rounded-lg border border-line bg-surface px-3.5 py-3">
+        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">2. Sor ve sus</p>
+        <ol className="grid gap-3">
+          {s.questions.map((q, i) => (
+            <li key={q.text} className="flex gap-2.5">
+              <span className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full bg-ink text-xs font-semibold text-white">
+                {i + 1}
+              </span>
+              <div>
+                <p className="text-[17px] font-medium leading-snug">&quot;{q.text}&quot;</p>
+                <p className="mt-0.5 text-sm text-muted">{q.listen}</p>
+              </div>
+            </li>
+          ))}
+        </ol>
+      </div>
+
+      <Say label="3. Bağla (cevabını kullan)" text={s.bridge} />
+      <Say label="4. Tarih iste" text={s.close} strong hint="Sustuktan sonra ilk konuşan kaybeder: cevabı bekle." />
+      <Say label="5. Evet derse: teyit" text={s.confirm} hint="Sonra aşağıdan: Randevu aldım." />
 
       <details className="group/replies overflow-hidden rounded-lg border border-line bg-surface">
         <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 px-3.5 text-[16px] font-semibold">
@@ -65,11 +84,12 @@ export function CallScript({ business, fieldDate }: { business: Business; fieldD
   );
 }
 
-function Say({ label, text, strong }: { label: string; text: string; strong?: boolean }) {
+function Say({ label, text, strong, hint }: { label: string; text: string; strong?: boolean; hint?: string }) {
   return (
     <div className={`rounded-lg border px-3.5 py-3 ${strong ? "border-meet/40 bg-meet-soft" : "border-line bg-surface"}`}>
       <p className={`mb-1 text-xs font-semibold uppercase tracking-wide ${strong ? "text-meet" : "text-muted"}`}>{label}</p>
-      <p className="text-[17px] leading-relaxed">{text}</p>
+      <p className="text-[17px] leading-relaxed">&quot;{text}&quot;</p>
+      {hint && <p className="mt-1.5 text-sm text-muted">{hint}</p>}
     </div>
   );
 }

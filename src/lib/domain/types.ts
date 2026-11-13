@@ -47,6 +47,8 @@ export type Contact = {
   id: string;
   name: string;
   role?: string;
+  /** Kişinin cep / WhatsApp numarası (ör. sekreterin verdiği numara). */
+  phone?: string;
 };
 
 export type Business = {

@@ -12,7 +12,11 @@ import {
   PHONE_SCENARIOS,
   POSITIONING,
   type Line,
+  withDay,
 } from "@/lib/domain/sales-playbook";
+
+/** Rehberde örnek gün. */
+const example = (t: string) => withDay(t, "Perşembe");
 
 // Konuşma rehberi: Cuswin-Arama-Senaryosu.pdf ve Saha Kiti'nin uygulamadaki hali.
 
@@ -39,32 +43,52 @@ export function PhoneGuide() {
       {PHONE_SCENARIOS.map((s) => (
         <section key={s.id}>
           <h3 className="text-[17px] font-semibold">{s.title}</h3>
-          <Say line={s.opening} />
-          {s.note && <p className="-mt-1 mb-2 text-sm text-muted">{s.note}</p>}
-          <div className="grid gap-2">
-            {s.branches.map((b) => (
-              <details key={b.title} className="rounded-md border border-line bg-surface px-3 py-2" open={s.branches.length === 1}>
-                <summary className="min-h-9 cursor-pointer py-1 font-medium">{b.title}</summary>
-                <div className="pb-1 pt-1">
-                  {b.lines.map((l) => (
-                    <Say key={l.text} line={l} />
-                  ))}
-                  {b.tip && <p className="text-sm text-muted">{b.tip}</p>}
-                </div>
-              </details>
-            ))}
+          <Say line={{ who: "1. Açılış", text: s.opening }} />
+          <p className="-mt-1 mb-2 text-sm text-muted">{s.note}</p>
+          <div className="my-2 rounded-md border border-line bg-surface px-3 py-2">
+            <p className="text-xs font-semibold uppercase tracking-wide text-meet">2. Sor ve sus</p>
+            <ol className="mt-1 grid gap-2">
+              {s.questions.map((q, i) => (
+                <li key={q.text}>
+                  <span className="font-medium">
+                    {i + 1}. &quot;{q.text}&quot;
+                  </span>
+                  <span className="block text-sm text-muted">{q.listen}</span>
+                </li>
+              ))}
+              {s.id === "doktor" && <li className="text-sm text-muted">+ klinik türüne göre bir soru (aşağıda).</li>}
+            </ol>
           </div>
+          <Say line={{ who: "3. Bağla", text: s.bridge }} />
+          <Say line={{ who: "4. Tarih iste", text: example(s.close), tone: "close" }} />
+          <Say line={{ who: "5. Teyit", text: example(s.confirm) }} />
+          {s.branches.length > 0 && (
+            <div className="mt-3 grid gap-2">
+              <p className="text-sm font-medium text-muted">Sık duyacağın cevaplar</p>
+              {s.branches.map((b) => (
+                <details key={b.title} className="rounded-md border border-line bg-surface px-3 py-2">
+                  <summary className="min-h-9 cursor-pointer py-1 font-medium">{b.title}</summary>
+                  <div className="pb-1 pt-1">
+                    {b.lines.map((l) => (
+                      <Say key={l.text} line={{ ...l, text: example(l.text) }} />
+                    ))}
+                    {b.tip && <p className="text-sm text-muted">{b.tip}</p>}
+                  </div>
+                </details>
+              ))}
+            </div>
+          )}
         </section>
       ))}
 
       <section>
         <h3 className="text-[17px] font-semibold">Hayır derlerse</h3>
-        <p className="mb-2 text-sm text-muted">İtirazı tekrar et, kısa cevap ver, tarihe dön. Telefonda ikna etmeye çalışma.</p>
+        <p className="mb-2 text-sm text-muted">Anladığını göster, kısa cevap ver, bir soruyla ya da tarihle bitir. Telefonda ikna etmeye çalışma.</p>
         <dl className="grid gap-2">
           {PHONE_OBJECTIONS.map((o) => (
             <div key={o.q} className="rounded-md border border-line bg-surface px-3 py-2">
               <dt className="font-medium">&quot;{o.q}&quot;</dt>
-              <dd>{o.a}</dd>
+              <dd>{example(o.a)}</dd>
               {o.app && <dd className="mt-1 text-sm text-meet">Uygulamada: {o.app}</dd>}
             </div>
           ))}

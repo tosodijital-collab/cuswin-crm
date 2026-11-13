@@ -4,24 +4,19 @@
 // Araştırmadaki satış akışı: ara → randevu al → git, demo yap → aynı gün tanıtım → tarih koy → tanıştırma iste.
 
 import Link from "next/link";
-import { useActionState, useCallback, useEffect, useState, type ReactNode } from "react";
-import { recordCallAction, type ActionState } from "@/lib/actions";
-import { formatPhone, mapsHref, telHref } from "@/lib/domain/contact-info";
+import { useCallback, useState, type ReactNode } from "react";
+import { formatPhone, mapsHref, telHref, whatsappChatHref, whatsappNumberOf } from "@/lib/domain/contact-info";
 import type { AppointmentItem, ContactSummary } from "@/lib/domain/field-plan";
-import { whatsappHref } from "@/lib/domain/field-route";
 import { CALL_STATUS_LABELS, CATEGORY_LABELS, VISIT_RESULT_LABELS } from "@/lib/domain/labels";
-import { getMaterial } from "@/lib/domain/materials";
-import { confirmationText, FOLLOW_UPS, MISSED_CALL_TEXT } from "@/lib/domain/sales-playbook";
-import { addDays, formatDateTime, formatTime, relativeDay, toDateStr } from "@/lib/domain/time";
+import { confirmationText, FOLLOW_UPS } from "@/lib/domain/sales-playbook";
+import { formatDateTime, formatTime, relativeDay, toDateStr } from "@/lib/domain/time";
 import type { Business, VisitResult } from "@/lib/domain/types";
-import { AppointmentQuickForm, CallOutcomeForm } from "./call-outcome-form";
+import { AppointmentQuickForm } from "./call-outcome-form";
+import { CallResult } from "./call-result";
 import { CallScript } from "./call-script";
-import { ShareMaterialButton } from "./share-material";
-import { showToast } from "./toast";
-import { Badge, FieldLabel, FormMessage, inputClass, StageBadge } from "./ui";
+import { SendWhatsapp } from "./send-whatsapp";
+import { Badge, StageBadge } from "./ui";
 import { VisitForm } from "./visit-form";
-
-const tanitim = getMaterial("tanitim");
 
 export const btn =
   "inline-flex min-h-12 items-center justify-center whitespace-nowrap rounded-md border border-line bg-surface px-3 text-[15px] font-medium hover:bg-paper";
@@ -54,24 +49,30 @@ function Panelish({ children }: { children: ReactNode }) {
  * Ziyaretten hemen sonra: satış kiti "aynı gün tanıtım gönder, tarih koy, tanıştırma iste".
  * Tarih ve tanıştırma ziyaret formunda alındı; burada yalnızca gönderme kalır.
  */
-function AfterVisit({ business: b, result, onClose }: { business: Business; result: VisitResult; onClose: () => void }) {
+function AfterVisit({
+  business: b,
+  result,
+  today,
+  onClose,
+}: {
+  business: Business;
+  result: VisitResult;
+  today: string;
+  onClose: () => void;
+}) {
   if (result === "ilgilenmiyor" || result === "kapali") return null;
-  const wa = whatsappHref(b.phone, tanitim.message);
   return (
     <Panelish>
-      <p className="font-semibold">Sıradaki adım: tanıtımı şimdi gönder</p>
-      <p className="mb-3 text-sm text-muted">Satış kuralı: görüşmeden sonra aynı gün. {VISIT_RESULT_LABELS[result]}.</p>
-      <div className="grid grid-cols-2 gap-2">
-        <ShareMaterialButton material={tanitim} label="Tanıtımı gönder" className={`${primaryBtn} col-span-2 bg-call hover:bg-call/90`} />
-        {wa && (
-          <a href={wa} target="_blank" rel="noopener noreferrer" className={btn}>
-            WhatsApp&apos;ı aç
-          </a>
-        )}
-        <button type="button" onClick={onClose} className={`${btn} ${wa ? "" : "col-span-2"}`}>
-          Tamam
+      <div className="mb-3 flex items-start justify-between gap-3">
+        <div>
+          <p className="font-semibold">Sıradaki adım: tanıtımı şimdi gönder</p>
+          <p className="text-sm text-muted">Satış kuralı: görüşmeden sonra aynı gün. {VISIT_RESULT_LABELS[result]}.</p>
+        </div>
+        <button type="button" onClick={onClose} className="min-h-11 shrink-0 px-2 text-[15px] text-muted">
+          Sonra
         </button>
       </div>
+      <SendWhatsapp business={b} today={today} onDone={onClose} />
     </Panelish>
   );
 }
@@ -91,7 +92,7 @@ export function AppointmentRow({
   const close = useCallback(() => setOpen((v) => (v === "sonuc" ? false : v)), []);
   const done = a.status === "yapildi";
   const tel = telHref(b.phone);
-  const confirm = whatsappHref(b.phone, confirmationText(formatDateTime(a.startsAt)));
+  const confirm = whatsappChatHref(whatsappNumberOf(b), confirmationText(formatDateTime(a.startsAt)));
 
   return (
     <li className={`border-b border-line last:border-b-0 ${done ? "bg-paper/50" : ""}`}>
@@ -145,7 +146,7 @@ export function AppointmentRow({
           <VisitForm businessId={b.id} currentStage={b.salesStage} today={today} appointmentId={a.id} onDone={close} onSaved={setSaved} />
         </Panelish>
       )}
-      {saved && <AfterVisit business={b} result={saved} onClose={() => setSaved(undefined)} />}
+      {saved && <AfterVisit business={b} result={saved} today={today} onClose={() => setSaved(undefined)} />}
     </li>
   );
 }
@@ -156,111 +157,7 @@ function lastCallLabel(contact: ContactSummary | undefined, today: string): stri
   return `Son arama ${relativeDay(toDateStr(new Date(c.at)), today).toLocaleLowerCase("tr-TR")}: ${CALL_STATUS_LABELS[c.callResult].toLocaleLowerCase("tr-TR")}`;
 }
 
-/** Tek dokunuşla arama sonucu (ulaşılamadı, ilgilenmiyor) ya da tarihli "sonra ara". */
-function QuickResult({ businessId, result, label, className }: { businessId: string; result: string; label: string; className: string }) {
-  const [state, action, pending] = useActionState<ActionState, FormData>(recordCallAction, { ok: false });
-  useEffect(() => {
-    if (state.ok) showToast(`${label}: kaydedildi.`);
-  }, [state, label]);
-  return (
-    <form action={action} className="contents">
-      <input type="hidden" name="businessId" value={businessId} />
-      <input type="hidden" name="result" value={result} />
-      <button type="submit" disabled={pending} className={`${className} disabled:opacity-50`}>
-        {label}
-      </button>
-      {!state.ok && state.message && (
-        <span className="col-span-2">
-          <FormMessage state={state} />
-        </span>
-      )}
-    </form>
-  );
-}
-
-function CallLaterForm({ businessId, today, onDone }: { businessId: string; today: string; onDone: () => void }) {
-  const [state, action, pending] = useActionState<ActionState, FormData>(recordCallAction, { ok: false });
-  useEffect(() => {
-    if (state.ok) {
-      showToast("Tekrar arama planlandı.");
-      onDone();
-    }
-  }, [state, onDone]);
-  return (
-    <form action={action} className="grid gap-2">
-      <input type="hidden" name="businessId" value={businessId} />
-      <input type="hidden" name="result" value="tekrar_aranacak" />
-      <div className="grid grid-cols-[1fr_7rem] gap-2">
-        <div>
-          <FieldLabel htmlFor={`later-${businessId}`}>Ne zaman arayayım?</FieldLabel>
-          <input
-            id={`later-${businessId}`}
-            type="date"
-            name="nextDate"
-            min={today}
-            defaultValue={addDays(today, 1)}
-            required
-            className={inputClass}
-          />
-        </div>
-        <div>
-          <FieldLabel htmlFor={`later-t-${businessId}`}>Saat</FieldLabel>
-          <input id={`later-t-${businessId}`} type="time" name="nextTime" defaultValue="11:00" className={inputClass} />
-        </div>
-      </div>
-      <input name="note" maxLength={500} placeholder="Not (kiminle konuştun?)" aria-label="Not" className={inputClass} />
-      <button type="submit" disabled={pending} className={`${primaryBtn} bg-ink hover:bg-ink/90 disabled:opacity-50`}>
-        {pending ? "Kaydediliyor" : "Kaydet"}
-      </button>
-      <FormMessage state={state} />
-    </form>
-  );
-}
-
-/** Arama sonucu seçenekleri: tek dokunuşluklar hemen kaydedilir, diğerleri ilgili formu açar. */
-function ResultOptions({
-  business: b,
-  onPick,
-  withAppointment,
-}: {
-  business: Business;
-  onPick: (p: CallPanel) => void;
-  withAppointment?: boolean;
-}) {
-  const wa = whatsappHref(b.phone, MISSED_CALL_TEXT);
-  const option = `${btn} w-full`;
-  return (
-    <>
-      <div className="grid grid-cols-2 gap-2">
-        {withAppointment && (
-          <button type="button" onClick={() => onPick("randevu")} className={`${primaryBtn} col-span-2 bg-meet hover:bg-meet/90`}>
-            Randevu aldım
-          </button>
-        )}
-        <QuickResult businessId={b.id} result="ulasilamadi" label="Ulaşılamadı" className={option} />
-        <button type="button" onClick={() => onPick("sonra")} className={option}>
-          Konuştum, sonra ara
-        </button>
-        <QuickResult businessId={b.id} result="ilgilenmiyor" label="İlgilenmiyor" className={option} />
-        <ShareMaterialButton material={tanitim} label="Tanıtımı gönder" className={`${option} border-call/40 text-call`} />
-        {wa && (
-          <a href={wa} target="_blank" rel="noopener noreferrer" className={`${option} border-call/40 text-call`}>
-            WhatsApp mesajı
-          </a>
-        )}
-        <button type="button" onClick={() => onPick("ziyaret")} className={option}>
-          Randevusuz uğradım
-        </button>
-        <button type="button" onClick={() => onPick("diger")} className={`${option} ${wa ? "col-span-2" : ""} text-muted`}>
-          Diğer sonuç
-        </button>
-      </div>
-      <p className="mt-2 text-sm text-muted">&quot;Bilgi gönderin&quot; derse Tanıtımı gönder, ama yine tarih iste.</p>
-    </>
-  );
-}
-
-type CallPanel = "arama" | "randevu" | "sonuc" | "sonra" | "ziyaret" | "diger";
+type CallPanel = "arama" | "randevu" | "sonuc";
 
 /**
  * Randevu almak için aranacak klinik. Üç düğme: Ara · Randevu aldım · Sonuç.
@@ -319,7 +216,7 @@ export function CallTargetRow({
           <button
             type="button"
             onClick={() => toggle("sonuc")}
-            aria-expanded={open !== false && open !== "randevu" && open !== "arama"}
+            aria-expanded={open === "sonuc"}
             className={`${btn} aria-expanded:bg-paper`}
           >
             Sonuç
@@ -347,32 +244,18 @@ export function CallTargetRow({
               Kapat
             </button>
           </div>
-          <CallScript business={b} fieldDate={fieldDate} />
+          <CallScript business={b} fieldDate={fieldDate} today={today} />
           <p className="mb-2 mt-5 text-[17px] font-semibold">Nasıl bitti?</p>
-          <ResultOptions business={b} onPick={setOpen} withAppointment />
+          <CallResult business={b} today={today} fieldDate={fieldDate} onDone={close} allowVisit onVisitSaved={setSaved} />
         </Panelish>
       )}
       {open === "sonuc" && (
         <Panelish>
-          <ResultOptions business={b} onPick={setOpen} />
+          <p className="mb-2 text-[17px] font-semibold">Nasıl bitti?</p>
+          <CallResult business={b} today={today} fieldDate={fieldDate} onDone={close} allowVisit onVisitSaved={setSaved} />
         </Panelish>
       )}
-      {open === "sonra" && (
-        <Panelish>
-          <CallLaterForm businessId={b.id} today={today} onDone={close} />
-        </Panelish>
-      )}
-      {open === "ziyaret" && (
-        <Panelish>
-          <VisitForm businessId={b.id} currentStage={b.salesStage} today={today} onDone={close} onSaved={setSaved} />
-        </Panelish>
-      )}
-      {open === "diger" && (
-        <Panelish>
-          <CallOutcomeForm businessId={b.id} currentStage={b.salesStage} today={today} onDone={close} autoFocus />
-        </Panelish>
-      )}
-      {saved && <AfterVisit business={b} result={saved} onClose={() => setSaved(undefined)} />}
+      {saved && <AfterVisit business={b} result={saved} today={today} onClose={() => setSaved(undefined)} />}
     </li>
   );
 }
@@ -407,7 +290,7 @@ export function VisitedRow({ business: b, today, contact }: { business: Business
             Randevu aldım
           </button>
           {FOLLOW_UPS.map((f) => {
-            const href = whatsappHref(b.phone, f.text);
+            const href = whatsappChatHref(whatsappNumberOf(b), f.text);
             return href ? (
               <a
                 key={f.id}
@@ -447,5 +330,109 @@ function PhoneIcon() {
     >
       <path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2z" />
     </svg>
+  );
+}
+
+type DoorPanel = "ziyaret" | "arama" | "randevu" | "sonuc";
+
+/** Haritada seçilen klinik: kapıdayken önce "Uğradım", yoldayken yol tarifi ve arama. */
+export function MapStopCard({
+  business: b,
+  today,
+  contact,
+  badge,
+  onClose,
+}: {
+  business: Business;
+  today: string;
+  contact?: ContactSummary;
+  /** Durum ve uzaklık ("Gidilmedi · 120 m"). */
+  badge?: ReactNode;
+  onClose: () => void;
+}) {
+  const [open, setOpen] = useState<DoorPanel>();
+  const [saved, setSaved] = useState<VisitResult>();
+  const close = useCallback(() => setOpen(undefined), []);
+  const toggle = (k: DoorPanel) => setOpen((v) => (v === k ? undefined : k));
+  const tel = telHref(b.phone);
+  const last = lastCallLabel(contact, today);
+  const v = contact?.lastVisit;
+
+  return (
+    <div>
+      <div className="px-4 py-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <BusinessHeader business={b}>
+              {badge && <p className="mt-1.5 flex flex-wrap gap-1.5">{badge}</p>}
+              {v && (
+                <p className="mt-1 text-sm">
+                  <span className="text-muted">{relativeDay(toDateStr(new Date(v.at)), today)}: </span>
+                  {v.visitResult ? VISIT_RESULT_LABELS[v.visitResult] : "Ziyaret"}
+                </p>
+              )}
+              {last && <p className="mt-0.5 text-sm text-muted">{last}</p>}
+            </BusinessHeader>
+          </div>
+          <button type="button" onClick={onClose} aria-label="Kapat" className="-mr-2 -mt-1 min-h-11 min-w-11 text-xl text-muted">
+            ×
+          </button>
+        </div>
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={() => toggle("ziyaret")}
+            aria-expanded={open === "ziyaret"}
+            className={`${primaryBtn} col-span-2 min-h-14 bg-call text-[17px] hover:bg-call/90`}
+          >
+            Uğradım: sonucu yaz
+          </button>
+          <a href={mapsHref(b)} target="_blank" rel="noopener noreferrer" className={btn}>
+            Yol tarifi
+          </a>
+          {tel ? (
+            <a href={tel} onClick={() => setOpen("arama")} className={`${btn} tabular-nums`}>
+              Ara
+            </a>
+          ) : (
+            <span className={`${btn} text-muted`}>Telefon yok</span>
+          )}
+          <button
+            type="button"
+            onClick={() => toggle("randevu")}
+            aria-expanded={open === "randevu"}
+            className={`${btn} border-meet/40 text-meet aria-expanded:bg-meet-soft`}
+          >
+            Randevu aldım
+          </button>
+          <button type="button" onClick={() => toggle("sonuc")} aria-expanded={open === "sonuc"} className={`${btn} aria-expanded:bg-paper`}>
+            Telefon sonucu
+          </button>
+        </div>
+      </div>
+      {open === "ziyaret" && (
+        <Panelish>
+          <VisitForm businessId={b.id} currentStage={b.salesStage} today={today} onDone={close} onSaved={setSaved} />
+        </Panelish>
+      )}
+      {open === "randevu" && (
+        <Panelish>
+          <AppointmentQuickForm businessId={b.id} currentStage={b.salesStage} today={today} defaultLocation={addressOf(b)} onDone={close} />
+        </Panelish>
+      )}
+      {open === "arama" && (
+        <Panelish>
+          <CallScript business={b} today={today} />
+          <p className="mb-2 mt-5 text-[17px] font-semibold">Nasıl bitti?</p>
+          <CallResult business={b} today={today} onDone={close} />
+        </Panelish>
+      )}
+      {open === "sonuc" && (
+        <Panelish>
+          <CallResult business={b} today={today} onDone={close} />
+        </Panelish>
+      )}
+      {saved && <AfterVisit business={b} result={saved} today={today} onClose={() => setSaved(undefined)} />}
+    </div>
   );
 }

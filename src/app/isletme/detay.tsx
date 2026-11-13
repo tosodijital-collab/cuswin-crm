@@ -5,11 +5,11 @@ import type { ReactNode } from "react";
 import { AppointmentControls, CalendarStatus, NewAppointmentToggle } from "@/components/appointment-forms";
 import { NoteForm, StageForm, VoidActivityButton } from "@/components/business-forms";
 import { AppointmentQuickToggle, CallOutcomeForm } from "@/components/call-outcome-form";
-import { ShareMaterialButton } from "@/components/share-material";
+import { SendWhatsapp } from "@/components/send-whatsapp";
 import { CallStatusBadge, EmptyState, LoadState, Panel, StageBadge } from "@/components/ui";
 import { useData } from "@/lib/client/refresh";
 import { getRepository } from "@/lib/data";
-import { formatPhone, mapsHref, telHref, websiteHref } from "@/lib/domain/contact-info";
+import { formatPhone, mapsHref, telHref, websiteHref, whatsappChatHref, whatsappNumberOf } from "@/lib/domain/contact-info";
 import {
   APPOINTMENT_STATUS_LABELS,
   CALL_STATUS_LABELS,
@@ -19,12 +19,10 @@ import {
   SOURCE_LABELS,
   VISIT_RESULT_LABELS,
 } from "@/lib/domain/labels";
-import { whatsappHref } from "@/lib/domain/field-route";
-import { getMaterial, type MaterialId } from "@/lib/domain/materials";
 import { FOLLOW_UPS } from "@/lib/domain/sales-playbook";
 import { MAX_FAILED_STREAK } from "@/lib/domain/rules";
 import { addDays, formatDateTime, formatShortDate, relativeDay, toDateStr, toTimeStr } from "@/lib/domain/time";
-import type { Activity } from "@/lib/domain/types";
+import type { Activity, Business } from "@/lib/domain/types";
 
 export function BusinessDetailScreen({ id }: { id: string }) {
   const repo = getRepository();
@@ -157,6 +155,7 @@ export function BusinessDetailScreen({ id }: { id: string }) {
                       <li key={c.id}>
                         {c.name}
                         {c.role && <span className="text-muted">, {c.role}</span>}
+                        {c.phone && <span className="tabular-nums text-muted"> · {c.phone}</span>}
                       </li>
                     ))}
                   </ul>
@@ -168,7 +167,7 @@ export function BusinessDetailScreen({ id }: { id: string }) {
                   : "Planlanmadı"}
               </Info>
               <Info label="Gönder">
-                <SendMaterials phone={b.phone} />
+                <SendMaterials business={b} today={today} />
               </Info>
               <Info label="Kaynak">
                 {SOURCE_LABELS[b.source]}
@@ -220,46 +219,23 @@ export function BusinessDetailScreen({ id }: { id: string }) {
   );
 }
 
-const SEND: { id: MaterialId; label: string }[] = [
-  { id: "tanitim", label: "Tanıtım" },
-  { id: "brosur", label: "Broşür" },
-  { id: "teklif", label: "Teklif" },
-];
-
-/** Kliniğe PDF ve hazır mesaj: WhatsApp sohbeti (cep numarasıysa) ve telefonun paylaşım penceresi. */
-function SendMaterials({ phone }: { phone?: string }) {
+/** Kliniğe PDF linki ve takip mesajları: kayıttaki numarayla doğrudan WhatsApp sohbeti. */
+function SendMaterials({ business: b, today }: { business: Business; today: string }) {
   const btn =
-    "inline-flex min-h-10 items-center justify-center whitespace-nowrap rounded-md border border-line px-3 text-[15px] font-medium hover:bg-paper";
-  const wa = whatsappHref(phone, getMaterial("tanitim").message);
+    "inline-flex min-h-10 items-center justify-center whitespace-nowrap rounded-md border border-call/40 px-3 text-[15px] font-medium text-call hover:bg-call-soft";
+  const number = whatsappNumberOf(b);
   return (
-    <div className="mt-1 grid gap-2">
-      {wa && (
-        <a href={wa} target="_blank" rel="noopener noreferrer" className={`${btn} border-call/40 text-call hover:bg-call-soft`}>
-          WhatsApp&apos;ta mesaj aç
-        </a>
-      )}
-      {wa && (
+    <div className="mt-1 grid gap-3">
+      <SendWhatsapp business={b} today={today} />
+      {number && (
         <div className="grid grid-cols-2 gap-2">
           {FOLLOW_UPS.map((f) => (
-            <a
-              key={f.id}
-              href={whatsappHref(phone, f.text)}
-              target="_blank"
-              rel="noopener noreferrer"
-              title={f.when}
-              className={`${btn} border-call/40 text-call hover:bg-call-soft`}
-            >
+            <a key={f.id} href={whatsappChatHref(number, f.text)} target="_blank" rel="noopener noreferrer" title={f.when} className={btn}>
               {f.label}
             </a>
           ))}
         </div>
       )}
-      <div className="grid grid-cols-3 gap-2">
-        {SEND.map((s) => (
-          <ShareMaterialButton key={s.id} material={getMaterial(s.id)} label={s.label} className={btn} />
-        ))}
-      </div>
-      <p className="text-sm text-muted">PDF düğmeleri paylaşım penceresini açar; mesaj da yanında gider.</p>
     </div>
   );
 }

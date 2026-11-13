@@ -40,6 +40,7 @@ function isActive(pathname: string, href: string) {
   const p = pathname.replace(/\/$/, "") || "/";
   if (href === "/") return p === "/";
   if (href === "/rehber") return p.startsWith("/rehber") || p.startsWith("/dosyalar");
+  if (href === "/saha") return p.startsWith("/saha") || p.startsWith("/harita");
   return p.startsWith(href) || (href === "/kayitlar" && p.startsWith("/isletme"));
 }
 

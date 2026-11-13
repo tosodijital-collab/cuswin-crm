@@ -19,3 +19,15 @@ describe("gönderilecek dosyalar", () => {
     }
   });
 });
+
+describe("mesajda PDF linki", () => {
+  it("her mesajda tek {link} var ve dolduruluyor", async () => {
+    const { messageWithLink } = await import("@/lib/domain/materials");
+    for (const m of MATERIALS) {
+      expect(m.message.split("{link}")).toHaveLength(2);
+      const text = messageWithLink(m, "https://ornek.tr/dosyalar/x.pdf");
+      expect(text).toContain("https://ornek.tr/dosyalar/x.pdf");
+      expect(text).not.toMatch(/\{link\}|ekte/);
+    }
+  });
+});

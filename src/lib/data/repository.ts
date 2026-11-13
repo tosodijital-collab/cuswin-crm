@@ -65,7 +65,7 @@ export type BusinessInput = {
   website?: string;
   district?: string;
   address?: string;
-  contacts: { name: string; role?: string }[];
+  contacts: { name: string; role?: string; phone?: string }[];
 };
 
 export type AppointmentInput = {
@@ -111,6 +111,8 @@ export interface CrmRepository {
   voidActivity(businessId: string, activityId: string): Promise<void>;
 
   createBusiness(input: BusinessInput): Promise<string>;
+  /** WhatsApp numarasını kişilere ekler; kayıtlı bir numaraysa bir şey yapmaz. */
+  saveWhatsappNumber(businessId: string, phone: string): Promise<void>;
   updateBusiness(id: string, input: BusinessInput): Promise<void>;
 
   listAppointments(): Promise<AppointmentView[]>;

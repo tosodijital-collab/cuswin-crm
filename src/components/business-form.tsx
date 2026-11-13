@@ -14,7 +14,7 @@ export function BusinessForm({ business }: { business?: Business }) {
     if (state.ok && state.redirectTo) router.push(state.redirectTo);
   }, [state, router]);
   const [contacts, setContacts] = useState(
-    business?.contacts.length ? business.contacts.map((c) => ({ name: c.name, role: c.role ?? "" })) : [],
+    business?.contacts.length ? business.contacts.map((c) => ({ name: c.name, role: c.role ?? "", phone: c.phone ?? "" })) : [],
   );
 
   return (
@@ -73,7 +73,7 @@ export function BusinessForm({ business }: { business?: Business }) {
       <fieldset className="grid gap-2">
         <legend className="mb-1 text-sm font-medium text-muted">Doktor veya ilgili kişiler</legend>
         {contacts.map((c, i) => (
-          <div key={i} className="grid grid-cols-[1fr_1fr_auto] gap-2">
+          <div key={i} className="grid grid-cols-[1fr_1fr_auto] gap-2 border-b border-line pb-2 last:border-b-0">
             <input
               name="contactName"
               aria-label="Kişi adı"
@@ -90,6 +90,16 @@ export function BusinessForm({ business }: { business?: Business }) {
               onChange={(e) => setContacts((cs) => cs.map((x, j) => (j === i ? { ...x, role: e.target.value } : x)))}
               className={inputClass}
             />
+            <input
+              name="contactPhone"
+              type="tel"
+              inputMode="tel"
+              aria-label="Cep / WhatsApp"
+              placeholder="Cep / WhatsApp"
+              value={c.phone}
+              onChange={(e) => setContacts((cs) => cs.map((x, j) => (j === i ? { ...x, phone: e.target.value } : x)))}
+              className={`${inputClass} col-span-2 row-start-2`}
+            />
             <button
               type="button"
               onClick={() => setContacts((cs) => cs.filter((_, j) => j !== i))}
@@ -101,7 +111,7 @@ export function BusinessForm({ business }: { business?: Business }) {
         ))}
         <button
           type="button"
-          onClick={() => setContacts((cs) => [...cs, { name: "", role: "" }])}
+          onClick={() => setContacts((cs) => [...cs, { name: "", role: "", phone: "" }])}
           className="justify-self-start text-[15px] font-medium text-meet hover:underline"
         >
           Kişi ekle

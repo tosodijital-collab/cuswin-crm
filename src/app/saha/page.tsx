@@ -55,6 +55,13 @@ export default function FieldPage() {
         <span className="block text-sm text-muted">Önce ara, o güne randevu al. Sahaya randevulara göre çık.</span>
       </p>
 
+      <Link
+        href="/harita"
+        className="mb-4 flex min-h-14 items-center justify-center gap-2 rounded-lg bg-ink px-4 text-[17px] font-semibold text-white hover:bg-ink/90"
+      >
+        Haritada gör: yakınımdaki klinikler
+      </Link>
+
       <nav
         aria-label="Günler"
         className="sticky top-0 z-10 -mx-4 mb-4 flex gap-2 overflow-x-auto border-b border-line bg-paper/95 px-4 py-2 backdrop-blur"

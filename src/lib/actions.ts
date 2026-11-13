@@ -57,6 +57,8 @@ const callSchema = z.object({
   stage: z.union([z.enum(SALES_STAGES), z.literal("")]).optional().transform((v) => v || undefined),
   nextDate: optionalDate,
   nextTime: optionalTime,
+  /** Tanıtımın gönderildiği WhatsApp numarası; yeni bir numaraysa kişilere eklenir. */
+  whatsapp: optionalText(40),
 });
 
 const callAppointmentSchema = z.object({
@@ -70,13 +72,14 @@ const callAppointmentSchema = z.object({
 /** Arama sonucunu kaydeder; "Randevu aldım" seçildiyse aynı adımda randevuyu da oluşturur. */
 export async function recordCallAction(_: ActionState, formData: FormData): Promise<ActionState> {
   return run(async () => {
-    const { businessId, ...input } = callSchema.parse(fields(formData));
+    const { businessId, whatsapp, ...input } = callSchema.parse(fields(formData));
     const appt = formData.get("withAppointment") ? callAppointmentSchema.parse(fields(formData)) : undefined;
     const startsAt = appt ? istanbulToUtc(appt.apptDate, appt.apptTime) : undefined;
     if (startsAt && startsAt.getTime() < Date.now()) throw new RuleError("Randevu saati geçmişte olamaz.");
 
     const repo = getRepository();
     await repo.recordCall(businessId, input);
+    if (whatsapp) await repo.saveWhatsappNumber(businessId, whatsapp);
     if (!appt || !startsAt) return "Kaydedildi.";
     const { reminderMinutes } = await repo.getSettings();
     const appointmentId = await repo.createAppointment(businessId, {
@@ -88,6 +91,14 @@ export async function recordCallAction(_: ActionState, formData: FormData): Prom
       reminderMinutes,
     });
     return "Kaydedildi, randevu oluşturuldu." + (await syncCalendarNow(appointmentId));
+  });
+}
+
+/** Arama kaydı olmadan WhatsApp numarasını kişilere ekler (ziyaret sonrası, işletme sayfası). */
+export async function saveWhatsappAction(_: ActionState, formData: FormData): Promise<ActionState> {
+  return run(async () => {
+    const { businessId, whatsapp } = z.object({ businessId: id, whatsapp: z.string().trim().min(10).max(40) }).parse(fields(formData));
+    await getRepository().saveWhatsappNumber(businessId, whatsapp);
   });
 }
 
@@ -176,7 +187,7 @@ const businessSchema = z.object({
   district: optionalText(60),
   address: optionalText(400),
   contacts: z
-    .array(z.object({ name: z.string().trim().min(1).max(120), role: optionalText(80) }))
+    .array(z.object({ name: z.string().trim().min(1).max(120), role: optionalText(80), phone: optionalText(40) }))
     .max(20),
 });
 
@@ -186,11 +197,12 @@ export async function saveBusinessAction(_: ActionState, formData: FormData): Pr
     const existingId = formData.get("id");
     const names = formData.getAll("contactName").map(String);
     const roles = formData.getAll("contactRole").map(String);
+    const phones = formData.getAll("contactPhone").map(String);
     const input = businessSchema.parse({
       ...fields(formData),
       categories: formData.getAll("categories"),
       contacts: names
-        .map((name, i) => ({ name, role: roles[i] }))
+        .map((name, i) => ({ name, role: roles[i], phone: phones[i] }))
         .filter((c) => c.name.trim()),
     });
     const repo = getRepository();

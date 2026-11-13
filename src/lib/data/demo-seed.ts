@@ -51,6 +51,24 @@ const rows: SeedRow[] = [
   ["Demo Kızılay Diş Şube 2", ["dis"], "Çankaya", "03120000101", { reviewReason: "Ortak telefon: Demo Kızılay Ağız ve Diş Sağlığı Polikliniği ile aynı numara. Şube mi aynı işletme mi kontrol edin." }],
 ];
 
+// Demo haritası için yaklaşık semt merkezleri (adlardaki semtten).
+const DEMO_SPOTS: [string, number, number][] = [
+  ["Kızılay", 39.9208, 32.8541], ["Bahçelievler", 39.9227, 32.8227], ["Çayyolu", 39.8851, 32.6895], ["Batıkent", 39.9683, 32.7312],
+  ["Tunalı", 39.9033, 32.8606], ["Eryaman", 39.9786, 32.6375], ["Keçiören", 39.9786, 32.8642], ["Ümitköy", 39.8998, 32.7005],
+  ["Gaziosmanpaşa", 39.8936, 32.8695], ["Dikmen", 39.8873, 32.8411], ["Balgat", 39.9036, 32.8233], ["Emek", 39.9139, 32.8135],
+  ["Kavaklıdere", 39.9071, 32.8617], ["Bilkent", 39.8730, 32.7476], ["Ayrancı", 39.8977, 32.8478], ["Esat", 39.9111, 32.8711],
+  ["Cebeci", 39.9301, 32.8780], ["Söğütözü", 39.9094, 32.8064], ["Beşevler", 39.9338, 32.8236], ["Necatibey", 39.9256, 32.8476],
+];
+
+function demoMapsUrl(name: string, i: number): string | undefined {
+  const spot = DEMO_SPOTS.find(([k]) => name.includes(k));
+  if (!spot) return undefined;
+  // Aynı semtteki kayıtlar üst üste binmesin.
+  const lat = spot[1] + ((i % 5) - 2) * 0.0012;
+  const lng = spot[2] + ((i % 3) - 1) * 0.0015;
+  return `https://www.google.com/maps/place/demo/data=!3d${lat.toFixed(6)}!4d${lng.toFixed(6)}`;
+}
+
 export function buildDemoBusinesses(today: DateStr): Business[] {
   return rows.map(([name, categories, district, phone, extra], i) => {
     const n = String(i + 1).padStart(2, "0");
@@ -62,6 +80,7 @@ export function buildDemoBusinesses(today: DateStr): Business[] {
       phone,
       district,
       address: `Demo Cad. No:${i + 1}`,
+      mapsUrl: demoMapsUrl(name, i),
       source: "demo",
       sourceId: `demo-place-${n}`,
       foundAt: istanbulToUtc(addDays(today, -foundDaysAgo), "07:30").toISOString(),

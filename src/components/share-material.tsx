@@ -1,11 +1,32 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import type { Material } from "@/lib/domain/materials";
+import { useEffect, useState, useSyncExternalStore } from "react";
+import { messageWithLink, type Material } from "@/lib/domain/materials";
 import { showToast } from "./toast";
 
 const base = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 const build = process.env.NEXT_PUBLIC_BUILD_ID ?? "";
+
+/** Karşı tarafa giden tam adres (WhatsApp'ta tıklanabilir link olur). */
+function materialUrl(m: Material): string {
+  return `${window.location.origin}${base}${m.path}`;
+}
+
+/** Hazır mesaj, PDF linkiyle birlikte (yalnız tarayıcıda). */
+export function materialMessage(m: Material): string {
+  return messageWithLink(m, materialUrl(m));
+}
+
+const noSubscribe = () => () => {};
+
+/** Mesajı render sırasında verir; statik derlemede (window yok) boş döner. */
+export function useMaterialMessage(m: Material): string {
+  return useSyncExternalStore(
+    noSubscribe,
+    () => materialMessage(m),
+    () => "",
+  );
+}
 
 /** Dosyanın yayınlanan adresi; sürüm eki eski PDF'in önbellekten gelmesini önler. */
 export function materialHref(m: Material): string {
@@ -58,18 +79,19 @@ export function ShareMaterialButton({
   }, [material]);
 
   const share = async () => {
-    const data = { files: file ? [file] : [], text: material.message };
+    const text = materialMessage(material);
+    const data = { files: file ? [file] : [], text };
     if (file && typeof navigator.canShare === "function" && navigator.canShare(data)) {
       try {
         await navigator.share(data);
       } catch (e) {
         if (e instanceof DOMException && e.name === "AbortError") return;
-        showToast((await copy(material.message)) ? "Paylaşılamadı. Mesaj kopyalandı, PDF'i Dosyalar'dan açabilirsin." : "Paylaşılamadı.");
+        showToast((await copy(text)) ? "Paylaşılamadı. Mesaj kopyalandı, PDF'i Dosyalar'dan açabilirsin." : "Paylaşılamadı.");
       }
       return;
     }
     // İkisi de dokunuşun içinde başlamalı (tarayıcı sonradan açılan pencereyi engeller).
-    const copied = copy(material.message);
+    const copied = copy(text);
     window.open(materialHref(material), "_blank", "noopener");
     showToast((await copied) ? "Mesaj kopyalandı. PDF açıldı, oradan paylaşabilirsin." : "PDF açıldı, oradan paylaşabilirsin.");
   };

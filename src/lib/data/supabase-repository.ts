@@ -2,7 +2,7 @@
 // Kurallar src/lib/domain içinde hesaplanır; çok adımlı değişiklikler veritabanı fonksiyonlarıyla tek işlemde uygulanır.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { normalizePhone, normalizeWebsite } from "@/lib/domain/contact-info";
+import { normalizePhone, normalizeWebsite, withWhatsapp } from "@/lib/domain/contact-info";
 import { decideImport } from "@/lib/domain/places";
 import {
   dataIssues,
@@ -165,7 +165,12 @@ function businessColumns(input: BusinessInput) {
     website: input.website?.trim() || null,
     district: input.district || null,
     address: input.address?.trim() || null,
-    contacts: input.contacts.map((c) => ({ id: crypto.randomUUID(), name: c.name.trim(), role: c.role?.trim() || undefined })),
+    contacts: input.contacts.map((c) => ({
+      id: crypto.randomUUID(),
+      name: c.name.trim(),
+      role: c.role?.trim() || undefined,
+      phone: c.phone?.trim() || undefined,
+    })),
     review_reason: issues.length ? issues.join(", ") : null,
   };
 }
@@ -385,6 +390,14 @@ export class SupabaseRepository implements CrmRepository {
     const id = String((rows as Row[])[0].id);
     await this.q(this.db.from("activities").insert({ business_id: id, type: "sistem", note: "Manuel olarak eklendi." }));
     return id;
+  }
+
+  async saveWhatsappNumber(id: string, phone: string): Promise<void> {
+    const detail = await this.getBusiness(id);
+    if (!detail) throw new RuleError("İşletme bulunamadı.");
+    const contacts = withWhatsapp(detail.business, phone);
+    if (!contacts) return;
+    await this.q(this.db.from("businesses").update({ contacts }).eq("id", id));
   }
 
   async updateBusiness(id: string, input: BusinessInput): Promise<void> {

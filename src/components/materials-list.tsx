@@ -2,9 +2,9 @@
 
 // Rehber ekranının "Dosyalar" bölümü.
 
-import { CopyMessageButton, materialHref, ShareMaterialButton } from "@/components/share-material";
+import { CopyMessageButton, materialHref, ShareMaterialButton, useMaterialMessage } from "@/components/share-material";
 import { Panel } from "@/components/ui";
-import { MATERIALS } from "@/lib/domain/materials";
+import { MATERIALS, type Material } from "@/lib/domain/materials";
 
 const btn =
   "inline-flex min-h-11 items-center justify-center whitespace-nowrap rounded-md border border-line px-3 text-[15px] font-medium hover:bg-paper";
@@ -14,8 +14,8 @@ export function MaterialsList() {
   return (
     <div>
       <p className="mb-4 max-w-2xl text-[15px] text-muted">
-        &quot;Paylaş&quot; telefonun paylaşım penceresini açar: WhatsApp&apos;ı seç, kişiyi seç, PDF gider. Hazır mesajı ayrıca
-        &quot;Mesajı kopyala&quot; ile yapıştırabilirsin. Kliniğe özel göndermek için Saha ya da işletme sayfasındaki düğmeleri kullan.
+        Kliniğe göndermek için kartta &quot;Sonuç → Bilgi istedi&quot; ya da işletme sayfasındaki &quot;WhatsApp&apos;ta gönder&quot;i kullan: numara
+        kaydetmeden sohbet açılır, PDF mesajda link olarak gider. &quot;Paylaş&quot; telefonun paylaşım penceresini açar (rehberdeki kişiler için).
       </p>
 
       <div className="grid gap-4 md:grid-cols-2">
@@ -31,14 +31,14 @@ export function MaterialsList() {
             </p>
             <details className="mt-3 rounded-md bg-paper px-3 py-2">
               <summary className="cursor-pointer text-sm font-medium text-muted">Hazır mesaj</summary>
-              <p className="mt-2 text-[15px]">{m.message}</p>
+              <MessageText material={m} />
             </details>
             <div className="mt-4 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
               <ShareMaterialButton material={m} className={`${btn} col-span-2 border-ink bg-ink text-white hover:bg-ink/90`} />
               <a href={materialHref(m)} target="_blank" rel="noopener noreferrer" className={btn}>
                 Aç
               </a>
-              <CopyMessageButton text={m.message} className={btn} />
+              <CopyMaterialMessage material={m} className={btn} />
             </div>
           </Panel>
         ))}
@@ -63,4 +63,13 @@ export function MaterialsList() {
       </Panel>
     </div>
   );
+}
+
+
+function MessageText({ material }: { material: Material }) {
+  return <p className="mt-2 whitespace-pre-line text-[15px]">{useMaterialMessage(material)}</p>;
+}
+
+function CopyMaterialMessage({ material, className }: { material: Material; className: string }) {
+  return <CopyMessageButton text={useMaterialMessage(material)} className={className} />;
 }

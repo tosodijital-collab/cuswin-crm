@@ -4,10 +4,11 @@ import Link from "next/link";
 import { useActionState, useCallback, useState } from "react";
 import { recordCallAction, type ActionState } from "@/lib/actions";
 import { formatPhone, telHref } from "@/lib/domain/contact-info";
-import { CALL_STATUS_LABELS, CATEGORY_LABELS } from "@/lib/domain/labels";
+import { CATEGORY_LABELS } from "@/lib/domain/labels";
 import { MAX_FAILED_STREAK } from "@/lib/domain/rules";
 import type { Activity, Business, CallTask } from "@/lib/domain/types";
-import { AppointmentQuickForm, CallOutcomeForm } from "./call-outcome-form";
+import { AppointmentQuickForm } from "./call-outcome-form";
+import { CallResult } from "./call-result";
 import { CallScript } from "./call-script";
 import { FormMessage } from "./ui";
 
@@ -68,7 +69,7 @@ export function CallRow({ row, today, tone }: { row: CallRowData; today: string;
               className="min-h-11 w-full rounded-md leading-tight sm:whitespace-nowrap border border-line px-2 text-[15px] hover:bg-late-soft hover:text-late disabled:opacity-50 sm:w-auto sm:px-3"
               title="Ulaşılamadı olarak kaydet; yarın tekrar listeye gelir"
             >
-              {CALL_STATUS_LABELS.ulasilamadi}
+              Açmadı
             </button>
           </form>
           <button
@@ -85,7 +86,7 @@ export function CallRow({ row, today, tone }: { row: CallRowData; today: string;
             aria-expanded={open === "sonuc"}
             className="min-h-11 rounded-md border border-line px-2 text-[15px] font-medium leading-tight sm:whitespace-nowrap hover:bg-paper aria-expanded:bg-paper sm:px-3"
           >
-            Sonuç gir
+            Sonuç
           </button>
         </div>
       </div>
@@ -104,13 +105,17 @@ export function CallRow({ row, today, tone }: { row: CallRowData; today: string;
                   Kapat
                 </button>
               </div>
-              <CallScript business={b} />
-              <p className="mt-4 text-sm text-muted">Bitince yukarıdan sonucu gir: Ulaşılamadı · Randevu aldım · Sonuç gir.</p>
+              <CallScript business={b} today={today} />
+              <p className="mb-2 mt-5 text-[17px] font-semibold">Nasıl bitti?</p>
+              <CallResult business={b} today={today} onDone={close} />
             </>
           ) : open === "randevu" ? (
             <AppointmentQuickForm businessId={b.id} currentStage={b.salesStage} today={today} onDone={close} />
           ) : (
-            <CallOutcomeForm businessId={b.id} currentStage={b.salesStage} today={today} onDone={close} autoFocus />
+            <>
+              <p className="mb-2 text-[17px] font-semibold">Nasıl bitti?</p>
+              <CallResult business={b} today={today} onDone={close} />
+            </>
           )}
         </div>
       )}

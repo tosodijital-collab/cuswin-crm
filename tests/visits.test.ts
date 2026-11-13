@@ -154,6 +154,6 @@ describe("telefon rehberi", () => {
     for (const s of pb.PHONE_SCENARIOS) {
       expect(JSON.stringify(s)).toMatch(/14:00|hangi gün/);
     }
-    expect(pb.confirmationText("12 Kasım 14:00")).toBe("Merhaba, 12 Kasım 14:00'te kliniğinizdeyiz. 10 dakika sürecek. Görüşmek üzere. Cuswin");
+    expect(pb.confirmationText("12 Kasım 14:00")).toBe("Merhaba, 12 Kasım 14:00'te kliniğinizdeyiz. 10 dakika sürecek. Görüşmek üzere. Özkan, Cuswin");
   });
 });
