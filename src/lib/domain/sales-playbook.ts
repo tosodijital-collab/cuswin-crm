@@ -140,7 +140,7 @@ export const PHONE_GOAL =
   "Telefonda tek amaç: 10 dakikalık yüz yüze görüşme tarihi. Satma, uzun anlatma. Sor, sus, dinle; sonra iki saat seçeneği ver.";
 
 export const PHONE_FLOW = [
-  { step: "Açılış", text: "Kim olduğun, izin iste. 15 saniye." },
+  { step: "Açılış", text: "Kim olduğun ve neden aradığın. İzin isteme, 15 saniye." },
   { step: "Sor", text: "3 kısa soru. Sor ve sus, cevabı dinle." },
   { step: "Bağla", text: "Onun cevabını kullan: \"Tam bunun için arıyorum.\"" },
   { step: "Tarih iste", text: "İki seçenek: \"14:00 mü, 16:00 mı?\"" },
@@ -165,7 +165,7 @@ export const PHONE_SCENARIOS: PhoneScenario[] = [
     id: "sekreter",
     title: "Sekreter açtı",
     opening:
-      "Merhaba, iyi günler. Ben Özkan, Cuswin'in kurucusuyum. Çok kısa bir şey soracağım, bir dakikanızı alabilir miyim? Kiminle görüşüyorum?",
+      "Merhaba, iyi günler. Ben Özkan, Cuswin'in kurucusuyum. Kliniklere gelen telefon ve WhatsApp mesajlarına cevap veren bir sistem kurduk, Ankara'daki kliniklerle görüşüyorum. Kiminle görüşüyorum?",
     note: "Adını al ve hep adıyla hitap et. Sekreter kapıdaki bekçi değil, en büyük yardımcın: sorunu en iyi o biliyor.",
     questions: [
       {
@@ -237,7 +237,8 @@ export const PHONE_SCENARIOS: PhoneScenario[] = [
   {
     id: "doktor",
     title: "Doktor açtı",
-    opening: "Merhaba Doktor Bey/Hanım, ben Özkan, Cuswin'in kurucusuyum. 30 saniyenizi alıp bir şey sorabilir miyim?",
+    opening:
+      "Merhaba Doktor Bey/Hanım, ben Özkan, Cuswin'in kurucusuyum. Kliniklere gelen telefon ve mesajlara, siz yetişemediğinizde cevap veren bir sistem kurduk; Ankara'da bir klinikte çalışıyor. Sizde durumu merak ediyorum:",
     note: "Sorudan sonra sus. Sözünü kesme; ne kadar çok konuşursa o kadar iyi.",
     questions: [
       { text: "Günde aşağı yukarı kaç mesaj ve arama geliyor?", listen: "Rakamı not al; yüz yüze görüşmede kullanacaksın." },
