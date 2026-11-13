@@ -23,10 +23,10 @@ export const MATERIALS: Material[] = [
     title: "Tanıtım dosyası",
     fileName: "Cuswin-Tanitim-Dosyasi.pdf",
     path: "/dosyalar/cuswin-tanitim.pdf",
-    pages: "11 sayfa",
+    pages: "8 sayfa",
     when: "Ziyaretten sonra aynı gün ya da \"tanıtımınız var mı?\" diyene.",
     message:
-      "Merhaba, Cuswin'den Özkan. Konuştuğumuz tanıtım dosyası burada:\n{link}\n\nKısaca: telefon, WhatsApp ve Instagram'dan gelen hastaya 3 saniyede cevap veriyor, randevuyu takvime yazıyor, sonra hastayı takip ediyor. Kurulumu biz yapıyoruz.\n\n10 dakikada canlı göstermek isterim. Bu hafta hangi gün uygun?",
+      "Merhaba, tanıtım dosyamız burada; telefondan rahatça okunuyor:\n{link}\n\nKısaca: siz hastanızla ilgilenirken kliniğinize yazan ve arayan hastaları karşılıyor, randevusunu ayarlıyor ve sonrasını takip ediyor. Denemek isterseniz demo hattımız 0850 510 09 46; arayabilir ya da WhatsApp'tan yazabilirsiniz.\n\nÖzkan Toso · 0537 839 54 20",
   },
   {
     id: "brosur",
@@ -36,17 +36,17 @@ export const MATERIALS: Material[] = [
     pages: "1 sayfa",
     when: "Kapıda elden bırakılır (basılı). Fuarda tanışılana aynı gün WhatsApp'tan.",
     message:
-      "Merhaba, Cuswin'den Özkan, bugün tanıştık. Tek sayfalık özet burada:\n{link}\n\nKliniğinizde 10 dakikalık bir gösterim için bu hafta hangi gün uygun?",
+      "Merhaba, bugün tanıştık. Konuştuğumuz Cuswin'in tek sayfalık özeti burada:\n{link}\n\nUygun olduğunuz bir gün kliniğinizde 10 dakikalık bir gösterim yapabilirim.\n\nÖzkan Toso · 0537 839 54 20",
   },
   {
     id: "is-ortakligi",
     title: "İş ortaklığı dosyası",
     fileName: "Cuswin-Is-Ortakligi.pdf",
     path: "/dosyalar/cuswin-is-ortakligi.pdf",
-    pages: "5 sayfa",
+    pages: "7 sayfa",
     when: "Kliniklere çalışan ajans ya da aracı iş birliği istediğinde.",
     message:
-      "Merhaba, Cuswin'den Özkan. İş ortaklığı dosyamız burada:\n{link}\n\nKısaca: müşterinize lead değil randevu teslim etmenizi sağlıyoruz. Kurulum ve destek bizden. 30 dakikalık bir görüşmede size uygun modeli birlikte belirleyelim. Bu hafta hangi gün uygun?",
+      "Merhaba, iş ortaklığı dosyamız burada:\n{link}\n\nKısaca: müşterinize lead değil randevu teslim etmenizi sağlıyoruz. Kurulum ve destek bizden. 30 dakikalık bir görüşmede size uygun modeli birlikte belirleyelim. Bu hafta hangi gün uygun?\n\nÖzkan Toso · 0537 839 54 20",
   },
 ];
 

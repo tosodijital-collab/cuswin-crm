@@ -9,7 +9,8 @@ const build = process.env.NEXT_PUBLIC_BUILD_ID ?? "";
 
 /** Karşı tarafa giden tam adres (WhatsApp'ta tıklanabilir link olur). */
 function materialUrl(m: Material): string {
-  return `${window.location.origin}${base}${m.path}`;
+  // Sürüm eki: PDF güncellenince WhatsApp ve tarayıcı eski dosyayı önbellekten açmasın.
+  return `${window.location.origin}${base}${m.path}${build ? `?v=${build.slice(0, 7)}` : ""}`;
 }
 
 /** Hazır mesaj, PDF linkiyle birlikte (yalnız tarayıcıda). */
