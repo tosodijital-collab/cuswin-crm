@@ -17,7 +17,8 @@ export const metadata: Metadata = {
   manifest: `${base}/manifest.webmanifest`,
 };
 
-export const viewport: Viewport = { themeColor: "#15202b" };
+// Sayfa ekran genişliğine sığar; yakınlaştırma serbest, ekran genişliğinden küçültme yok.
+export const viewport: Viewport = { themeColor: "#15202b", width: "device-width", initialScale: 1, minimumScale: 1 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (

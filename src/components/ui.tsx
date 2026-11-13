@@ -71,7 +71,7 @@ export function FieldLabel({ children, htmlFor }: { children: ReactNode; htmlFor
 }
 
 export const inputClass =
-  "w-full rounded-md border border-line bg-surface px-3 py-2 text-[15px] text-ink placeholder:text-muted/70 focus:border-meet focus:outline-none";
+  "w-full rounded-md border border-line bg-surface px-3 py-2 text-[16px] text-ink placeholder:text-muted/70 focus:border-meet focus:outline-none";
 
 export const buttonClass = {
   primary:
