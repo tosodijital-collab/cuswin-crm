@@ -27,7 +27,9 @@ async function main() {
   try {
     if (task === "full") {
       if (!isScraperConfigured()) throw new Error("Tarayıcı ayarlı değil.");
-      const scan = await runFullScan(repo, log);
+      const shard = Number(process.env.SHARD ?? 0);
+      const shards = Number(process.env.SHARDS ?? 1);
+      const scan = await runFullScan(repo, log, shard, shards);
       log(`Tam tarama ${scan.status}: ${scan.found} sonuç, ${scan.added} yeni, ${scan.updated} tazelendi${scan.error ? `, ${scan.error}` : ""}`);
       return;
     }

@@ -91,12 +91,42 @@ async function execute(repo: CrmRepository, scan: ScanRun, all: string[], cursor
 }
 
 /**
- * Bir defalık tam Ankara taraması: tüm ilçe × kategori sorguları, merkez ilçelerde derin kaydırma,
- * eklenecek yeni işletme sınırı yok. Tek tarayıcı, sorgular sırayla (Google'a yük düşük kalır).
+ * Google Maps bir aramada en fazla ~120 sonuç gösterir; "diş kliniği Çankaya" tüm Çankaya'yı getiremez.
+ * Tam taramada klinik yoğun semtler ayrı ayrı aranır, ilçeler de ayrıca (yinelenenler place_id ile elenir).
  */
-export async function runFullScan(repo: CrmRepository, log: (m: string) => void): Promise<ScanRun> {
+const DENSE_SEMTS = [
+  // Çankaya
+  "Kızılay", "Bahçelievler", "Çayyolu", "Ümitköy", "Balgat", "Dikmen", "Gaziosmanpaşa", "Kavaklıdere", "Tunalı Hilmi",
+  "Ayrancı", "Emek", "Cebeci", "Kurtuluş", "Maltepe", "Sıhhiye", "Esat", "Yüzüncüyıl", "Çukurambar", "Söğütözü",
+  "Bilkent", "Oran", "Yaşamkent", "Mutlukent", "Konutkent", "Öveçler", "Kızılırmak", "Anıttepe", "Beşevler", "Birlik",
+  // Yenimahalle
+  "Batıkent", "Demetevler", "Ostim", "Şentepe", "Karşıyaka Yenimahalle", "Yenimahalle merkez",
+  // Keçiören, Etimesgut, Altındağ, Mamak, Sincan, Gölbaşı
+  "Etlik", "Kalaba", "Aktepe", "Keçiören merkez", "Eryaman", "Elvankent", "Bağlıca", "Etimesgut merkez", "Ulus",
+  "Aydınlıkevler", "Abidinpaşa", "Tuzluçayır", "Mamak merkez", "Sincan merkez", "Gölbaşı merkez", "İncek", "Pursaklar merkez",
+];
+const SEMT_TERMS = ["diş kliniği", "estetik klinik", "saç ekim merkezi"];
+
+export type ScanQuery = { query: string; depth: number };
+
+/** Tam taramanın tüm sorguları: semtler (orta derinlik) + her ilçe × kategori (merkez ilçelerde daha derin). */
+export function fullQueries(categories: Category[]): ScanQuery[] {
+  const out: ScanQuery[] = [];
+  for (const semt of DENSE_SEMTS) for (const t of SEMT_TERMS) out.push({ query: `${t} ${semt} Ankara`, depth: 3 });
+  for (const query of buildQueries({ categories, districts: [] })) {
+    const district = query.replace(/ Ankara$/, "").split(" ").pop() ?? "";
+    out.push({ query, depth: DENSE_DISTRICTS.has(district) ? 4 : 2 });
+  }
+  return out;
+}
+
+/**
+ * Bir defalık tam Ankara taraması. Sorgular `shards` parçaya bölünür; her GitHub işi bir parçayı tarar
+ * (paralel, farklı makineler). Eklenecek yeni işletme sınırı yok; art arda 3 hatada parça durur.
+ */
+export async function runFullScan(repo: CrmRepository, log: (m: string) => void, shard = 0, shards = 1): Promise<ScanRun> {
   const settings = await repo.getSettings();
-  const all = buildQueries({ categories: settings.categories, districts: [] });
+  const all = fullQueries(settings.categories).filter((_, i) => i % shards === shard);
   const scan: ScanRun = {
     id: crypto.randomUUID(),
     startedAt: new Date().toISOString(),
@@ -112,9 +142,7 @@ export async function runFullScan(repo: CrmRepository, log: (m: string) => void)
   };
   await repo.saveScan(scan);
   let failures = 0;
-  for (const [i, query] of all.entries()) {
-    const district = query.replace(/ Ankara$/, "").split(" ").pop() ?? "";
-    const depth = DENSE_DISTRICTS.has(district) ? 8 : 2;
+  for (const [i, { query, depth }] of all.entries()) {
     try {
       const raw = await runMapsQuery(query, { depth, timeoutMs: 12 * 60_000 });
       scan.queries.push(query);
@@ -130,15 +158,15 @@ export async function runFullScan(repo: CrmRepository, log: (m: string) => void)
       scan.updated += res.updated;
       scan.flagged += res.flagged;
       scan.skipped += res.skipped;
-      log(`(${i + 1}/${all.length}) ${query}: ${raw.length} sonuç, ${res.added} yeni`);
+      log(`[${shard + 1}/${shards}] (${i + 1}/${all.length}) ${query}: ${raw.length} sonuç, ${res.added} yeni`);
       failures = 0;
     } catch (e) {
       failures++;
-      log(`(${i + 1}/${all.length}) ${query}: atlandı (${e instanceof Error ? e.message : "hata"})`);
+      log(`[${shard + 1}/${shards}] (${i + 1}/${all.length}) ${query}: atlandı (${e instanceof Error ? e.message : "hata"})`);
       // Art arda hata: Google erişimi kısıtlamış olabilir, zorlamadan dur.
       if (failures >= 3) {
         scan.status = "hata";
-        scan.error = "Art arda 3 sorgu başarısız oldu; tarama durduruldu. Bir süre sonra tekrar denenebilir.";
+        scan.error = "Art arda 3 sorgu başarısız oldu; bu parça durduruldu. Bir süre sonra tekrar denenebilir.";
         break;
       }
     }
@@ -146,7 +174,7 @@ export async function runFullScan(repo: CrmRepository, log: (m: string) => void)
   }
   if (scan.status === "calisiyor") {
     scan.status = "tamam";
-    scan.note = `Tam Ankara taraması: ${scan.queries.length} sorgu, ${scan.added} yeni işletme.`;
+    scan.note = `Tam Ankara taraması (parça ${shard + 1}/${shards}): ${scan.queries.length} sorgu, ${scan.added} yeni işletme.`;
   }
   scan.finishedAt = new Date().toISOString();
   await repo.saveScan(scan);

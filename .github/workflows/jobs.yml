@@ -15,15 +15,18 @@ on:
 permissions:
   contents: read
 
-concurrency:
-  group: crm-scan
-  cancel-in-progress: false
-
 jobs:
   run:
     if: ${{ vars.JOBS_ENABLED == 'true' }}
     runs-on: ubuntu-latest
-    # Tam Ankara taraması (full) tek seferlik ve uzun sürer.
+    # Tam Ankara taraması (full) tek seferlik: sorgular 6 parçaya bölünür, her parça ayrı makinede paralel.
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ${{ fromJSON(inputs.task == 'full' && '[0,1,2,3,4,5]' || '[0]') }}
+    concurrency:
+      group: crm-scan-${{ inputs.task }}-${{ matrix.shard }}
+      cancel-in-progress: false
     timeout-minutes: ${{ inputs.task == 'full' && 340 || 30 }}
     steps:
       - uses: actions/checkout@v7
@@ -36,6 +39,8 @@ jobs:
         run: npx tsx jobs/run.ts "$TASK"
         env:
           TASK: ${{ inputs.task }}
+          SHARD: ${{ matrix.shard }}
+          SHARDS: ${{ inputs.task == 'full' && 6 || 1 }}
           SUPABASE_URL: ${{ vars.SUPABASE_URL }}
           SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
           GMAPS_SCRAPER_IMAGE: gosom/google-maps-scraper:v1.18.1
