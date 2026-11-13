@@ -166,9 +166,11 @@ export function FieldMap() {
         </ul>
         {geoMsg && <p className="mt-2 rounded-md bg-late-soft px-3 py-2 text-sm text-late">{geoMsg}</p>}
 
-        {selected ? (
-          <Panel className="mt-3 overflow-hidden">
-            <MapStopCard
+        {selected && (
+          // Seçilen klinik ekranın altında, menünün üstünde açılır: sayfa kaymaz, harita yerinde kalır.
+          <div className="fixed inset-x-0 bottom-[calc(5.25rem+env(safe-area-inset-bottom))] z-[1500] mx-auto max-w-lg px-2 md:bottom-4">
+            <Panel className="max-h-[55svh] overflow-y-auto overscroll-contain shadow-[0_-6px_24px_rgba(21,32,43,0.18)]">
+              <MapStopCard
               key={selected.business.id}
               business={selected.business}
               today={today}
@@ -182,8 +184,10 @@ export function FieldMap() {
               onClose={() => setSelectedId(undefined)}
               next={nextFor(selected.business.id)}
             />
-          </Panel>
-        ) : (
+            </Panel>
+          </div>
+        )}
+        {(
           <Panel className="mt-3 overflow-hidden">
             <h2 className="border-b border-line px-4 py-3 text-[17px] font-semibold">{me ? "Yakınındaki klinikler" : "Haritadan bir klinik seç"}</h2>
             {me ? (

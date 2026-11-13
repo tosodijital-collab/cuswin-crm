@@ -18,6 +18,17 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [auth, setAuth] = useState<AuthState>(configured ? "yukleniyor" : "hazir");
   const isLogin = pathname.startsWith("/giris");
 
+  // iPhone Safari viewport ayarını yok sayıp iki parmakla sayfayı büyütüp küçültmeye izin veriyor;
+  // uygulama ekrana otursun diye sayfa genelinde bu hareket engellenir (harita kendi içinde ayrıca yakalar).
+  useEffect(() => {
+    const stop = (e: Event) => e.preventDefault();
+    const evs = ["gesturestart", "gesturechange", "gestureend"];
+    for (const ev of evs) document.addEventListener(ev, stop, { passive: false });
+    return () => {
+      for (const ev of evs) document.removeEventListener(ev, stop);
+    };
+  }, []);
+
   useEffect(() => {
     if (!configured) return;
     const sb = getBrowserSupabase();

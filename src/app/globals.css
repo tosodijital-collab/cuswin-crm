@@ -22,6 +22,12 @@
   color-scheme: light;
 }
 
+/* Uygulama gibi dursun: çift dokunuşla yakınlaştırma yok (dokunuşlar da gecikmesiz). */
+html {
+  touch-action: manipulation;
+  -webkit-text-size-adjust: 100%;
+}
+
 body {
   background: var(--color-paper);
   color: var(--color-ink);

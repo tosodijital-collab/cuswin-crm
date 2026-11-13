@@ -17,8 +17,15 @@ export const metadata: Metadata = {
   manifest: `${base}/manifest.webmanifest`,
 };
 
-// Sayfa ekran genişliğine sığar; yakınlaştırma serbest, ekran genişliğinden küçültme yok.
-export const viewport: Viewport = { themeColor: "#15202b", width: "device-width", initialScale: 1, minimumScale: 1 };
+// Telefon uygulaması gibi: sayfa ekran genişliğine oturur, sayfa büyütülüp küçültülmez (harita kendi içinde büyür).
+export const viewport: Viewport = {
+  themeColor: "#15202b",
+  width: "device-width",
+  initialScale: 1,
+  minimumScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+};
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (

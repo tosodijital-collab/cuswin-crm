@@ -42,7 +42,8 @@ export function ClinicMap({
       if (cancelled || !box.current || map.current) return;
       const lib = (mod.default ?? mod) as typeof Leaflet;
       L.current = lib;
-      const m = lib.map(box.current, { zoomControl: false, preferCanvas: true }).setView(ANKARA, 12);
+      // keyboard: false — dokununca haritaya odaklanıp sayfayı kaydırmasın (iPhone).
+      const m = lib.map(box.current, { zoomControl: false, preferCanvas: true, keyboard: false }).setView(ANKARA, 12);
       lib
         .tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
           maxZoom: 19,
