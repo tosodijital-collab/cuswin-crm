@@ -17,9 +17,11 @@ export function AppShell({ children }: { children: ReactNode }) {
   const router = useRouter();
   const [auth, setAuth] = useState<AuthState>(configured ? "yukleniyor" : "hazir");
   const isLogin = pathname.startsWith("/giris");
+  // Kliniğe gönderilen teklif sayfası herkese açık: oturum, menü ve uygulama verisi yok.
+  const isPublic = pathname.startsWith("/teklif");
 
   useEffect(() => {
-    if (!configured) return;
+    if (!configured || isPublic) return;
     const sb = getBrowserSupabase();
     const check = async (userId: string | undefined) => {
       if (!userId) return setAuth("giris");
@@ -32,13 +34,15 @@ export function AppShell({ children }: { children: ReactNode }) {
       setTimeout(() => check(session?.user.id), 0);
     });
     return () => sub.subscription.unsubscribe();
-  }, [configured]);
+  }, [configured, isPublic]);
 
   useEffect(() => {
+    if (isPublic) return;
     if (auth === "giris" && !isLogin) router.replace("/giris");
     if (auth === "hazir" && isLogin) router.replace("/");
-  }, [auth, isLogin, router]);
+  }, [auth, isLogin, isPublic, router]);
 
+  if (isPublic) return <main className="mx-auto w-full max-w-3xl bg-paper px-4 py-8 print:bg-white print:p-0">{children}</main>;
   if (isLogin) return <main className="mx-auto w-full max-w-sm px-4 pt-16">{children}</main>;
 
   return (

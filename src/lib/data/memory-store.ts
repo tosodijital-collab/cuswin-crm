@@ -216,6 +216,20 @@ export class MemoryRepository implements CrmRepository {
     this.s.activities.push({ id: id(), businessId, at: nowIso(), type: "asama", stage, note });
   }
 
+  async listUpcomingTasks(from: DateStr, to: DateStr): Promise<TaskView[]> {
+    return this.s.tasks
+      .filter((t) => t.status === "acik" && t.dueDate >= from && t.dueDate <= to)
+      .sort((a, b) => a.dueDate.localeCompare(b.dueDate) || (a.dueTime ?? "99:99").localeCompare(b.dueTime ?? "99:99"))
+      .map((task) => ({ task, business: this.mustBusiness(task.businessId) }));
+  }
+
+  async listNotesWithPrefix(prefix: string): Promise<Activity[]> {
+    return this.s.activities
+      .filter((a) => a.type === "not" && !a.voidedAt && a.note?.startsWith(prefix))
+      .sort((a, b) => b.at.localeCompare(a.at))
+      .map((a) => ({ ...a }));
+  }
+
   async addNote(businessId: string, note: string): Promise<void> {
     this.mustBusiness(businessId);
     this.s.activities.push({ id: id(), businessId, at: nowIso(), type: "not", note });

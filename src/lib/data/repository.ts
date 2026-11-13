@@ -104,6 +104,10 @@ export interface CrmRepository {
   recordVisit(businessId: string, input: VisitOutcomeInput, appointmentId?: string): Promise<void>;
   /** Tüm işletmelerin geçerli arama ve ziyaret kayıtları, yeniden eskiye (Saha ekranı için). */
   listContactHistory(): Promise<Activity[]>;
+  /** Günü gelecek açık arama görevleri (from ≤ gün ≤ to), güne ve saate göre. */
+  listUpcomingTasks(from: DateStr, to: DateStr): Promise<TaskView[]>;
+  /** Notu bu önekle başlayan geçerli notlar (ör. "Mesaj gönderildi:"), yeniden eskiye. */
+  listNotesWithPrefix(prefix: string): Promise<Activity[]>;
   /** Bu andan sonraki tüm geçerli geçmiş kayıtları (gün sonu raporu için). */
   listActivitiesSince(sinceIso: string): Promise<Activity[]>;
   setSalesStage(businessId: string, stage: SalesStage, note?: string): Promise<void>;

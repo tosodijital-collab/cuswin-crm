@@ -80,3 +80,9 @@ export function relativeDay(date: DateStr, today: DateStr): string {
   if (date === addDays(today, 1)) return "Yarın";
   return formatShortDate(date);
 }
+
+/** Müşteriye giden yazı için: "17 Kasım Salı, saat 14:00". */
+export function formatLongDateTime(iso: string): string {
+  const d = new Date(iso);
+  return `${longDate.format(d)}, saat ${timeFmt.format(d)}`;
+}

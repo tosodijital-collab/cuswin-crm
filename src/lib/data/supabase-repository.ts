@@ -22,6 +22,7 @@ import type {
   CalendarSync,
   CallTask,
   DailyRun,
+  DateStr,
   ImportResult,
   PlaceInput,
   SalesStage,
@@ -347,6 +348,34 @@ export class SupabaseRepository implements CrmRepository {
   async setSalesStage(businessId: string, stage: SalesStage, note?: string): Promise<void> {
     await this.q(this.db.from("businesses").update({ sales_stage: stage }).eq("id", businessId));
     await this.q(this.db.from("activities").insert({ business_id: businessId, type: "asama", stage, note: note ?? null }));
+  }
+
+  async listUpcomingTasks(from: DateStr, to: DateStr): Promise<TaskView[]> {
+    const rows = await this.q(
+      this.db
+        .from("call_tasks")
+        .select("*, business:businesses(*)")
+        .eq("status", "acik")
+        .gte("due_date", from)
+        .lte("due_date", to)
+        .order("due_date")
+        .order("due_time", { nullsFirst: false }),
+    );
+    return (rows as Row[]).map((r) => ({ task: toTask(r), business: toBusiness(r.business as Row) }));
+  }
+
+  async listNotesWithPrefix(prefix: string): Promise<Activity[]> {
+    const rows = await this.q(
+      this.db
+        .from("activities")
+        .select("id, business_id, at, type, call_result, stage, note, voided_at")
+        .eq("type", "not")
+        .like("note", `${prefix.replace(/[%_]/g, "")}%`)
+        .is("voided_at", null)
+        .order("at", { ascending: false })
+        .limit(2000),
+    );
+    return (rows as Row[]).map(toActivity);
   }
 
   async addNote(businessId: string, note: string): Promise<void> {

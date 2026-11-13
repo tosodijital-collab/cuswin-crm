@@ -4,7 +4,8 @@ import { useActionState, useEffect, useId, useState } from "react";
 import { recordCallAction, type ActionState } from "@/lib/actions";
 import { CALL_STATUS_LABELS, MEETING_TYPE_LABELS, SALES_STAGE_LABELS } from "@/lib/domain/labels";
 import { CALL_STATUSES, MEETING_TYPES, SALES_STAGES, type CallStatus, type SalesStage } from "@/lib/domain/types";
-import { formatDateTime, istanbulToUtc } from "@/lib/domain/time";
+import { formatDateTime, formatLongDateTime, istanbulToUtc } from "@/lib/domain/time";
+import { markSent } from "@/lib/client/sent";
 import type { Business } from "@/lib/domain/types";
 import { confirmationText } from "@/lib/domain/sales-playbook";
 import { InsightsField } from "./insights";
@@ -202,7 +203,7 @@ export function AppointmentQuickForm({
   useEffect(() => {
     if (!state.ok) return;
     if (state.message) showToast(state.message);
-    if (business && when) openConfirmSheet(business, when);
+    if (business && when) openConfirmSheet(business, when, `Randevu kaydedildi: ${formatDateTime(when)}`);
     onDone?.();
     // Yalnızca kayıt sonucu değişince çalışmalı.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -215,7 +216,7 @@ export function AppointmentQuickForm({
         const f = new FormData(e.currentTarget);
         const d = String(f.get("apptDate") ?? "");
         const t = String(f.get("apptTime") ?? "");
-        if (d && t) setWhen(formatDateTime(istanbulToUtc(d, t).toISOString()));
+        if (d && t) setWhen(istanbulToUtc(d, t).toISOString());
       }}
       className="grid gap-3"
     >
@@ -285,13 +286,21 @@ export function AppointmentQuickForm({
   );
 }
 
-/** Randevu kaydedildi: aynı anda WhatsApp'tan teyit (gelmeme oranını düşürür). */
-export function openConfirmSheet(b: Business, when: string) {
+/** Randevu teyidi: WhatsApp'tan, tarih açık yazılır (gelmeme oranını düşürür). */
+export function openConfirmSheet(b: Business, startsAtIso: string, title = `Randevu: ${formatDateTime(startsAtIso)}`) {
   openSheet(
-    `Randevu kaydedildi: ${when}`,
+    title,
     <div className="grid gap-3">
-      <p className="text-[15px] text-muted">Şimdi teyit at. Yazılı teyit randevuya gelmemeyi azaltır.</p>
-      <WhatsappTo business={b} message={confirmationText(when)} label="Teyidi WhatsApp'tan gönder" onSent={closeSheet} />
+      <p className="text-[15px] text-muted">{b.name}. Yazılı teyit randevuya gelmemeyi azaltır.</p>
+      <WhatsappTo
+        business={b}
+        message={confirmationText(formatLongDateTime(startsAtIso))}
+        label="Teyidi WhatsApp'tan gönder"
+        onSent={() => {
+          markSent(b.id, "teyit");
+          closeSheet();
+        }}
+      />
     </div>,
   );
 }
