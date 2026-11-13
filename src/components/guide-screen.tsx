@@ -1,21 +1,23 @@
 "use client";
 
 import { useState } from "react";
-import { ObjectionGuide, PhoneGuide, VisitGuide } from "./guides";
+import { CompetitorGuide, DoorGuide, ObjectionGuide, ProductGuide } from "./guides";
 import { MaterialsList } from "./materials-list";
 import { PageTitle } from "./ui";
 
+// Telefon konuşması aramada kartın içinde açılır; Rehber kapıda ve demoda elinin altında olsun diye.
 const TABS = [
-  { id: "telefon", label: "Telefon", body: PhoneGuide },
-  { id: "ziyaret", label: "Ziyaret", body: VisitGuide },
-  { id: "itiraz", label: "İtirazlar", body: ObjectionGuide },
-  { id: "dosyalar", label: "Dosyalar", body: MaterialsList },
+  { id: "kapida", label: "Kapıda", body: DoorGuide },
+  { id: "urun", label: "Ürün", body: ProductGuide },
+  { id: "itiraz", label: "İtiraz", body: ObjectionGuide },
+  { id: "rakip", label: "Rakip", body: CompetitorGuide },
+  { id: "dosyalar", label: "Dosya", body: MaterialsList },
 ] as const;
 
 export type GuideTab = (typeof TABS)[number]["id"];
 
-/** Rehber: aramada ne denir, ziyarette ne yapılır, itiraza ne cevap verilir, hangi dosya gönderilir. */
-export function GuideScreen({ initial = "telefon" }: { initial?: GuideTab }) {
+/** Rehber: kapıda ne denir, doktor ne sorar, itiraza ve rakibe ne cevap verilir, hangi dosya gönderilir. */
+export function GuideScreen({ initial = "kapida" }: { initial?: GuideTab }) {
   const [tab, setTab] = useState<GuideTab>(initial);
   const Body = TABS.find((t) => t.id === tab)!.body;
   return (
@@ -26,7 +28,7 @@ export function GuideScreen({ initial = "telefon" }: { initial?: GuideTab }) {
         aria-label="Rehber bölümleri"
         className="sticky top-0 z-10 -mx-4 mb-4 border-b border-line bg-paper/95 px-4 py-2 backdrop-blur"
       >
-        <div className="grid grid-cols-4 gap-1 rounded-xl border border-line bg-surface p-1">
+        <div className="grid grid-cols-5 gap-1 rounded-xl border border-line bg-surface p-1">
           {TABS.map((t) => (
             <button
               key={t.id}
@@ -37,7 +39,7 @@ export function GuideScreen({ initial = "telefon" }: { initial?: GuideTab }) {
                 setTab(t.id);
                 window.scrollTo({ top: 0 });
               }}
-              className="min-h-12 rounded-lg text-[15px] font-medium text-muted active:bg-paper aria-selected:bg-ink aria-selected:font-semibold aria-selected:text-white"
+              className="min-h-12 rounded-lg text-[14px] font-medium text-muted active:bg-paper aria-selected:bg-ink aria-selected:font-semibold aria-selected:text-white"
             >
               {t.label}
             </button>

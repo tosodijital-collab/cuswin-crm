@@ -124,7 +124,7 @@ export function salesFunnel(businesses: Pick<Business, "salesStage">[]): { total
   return { total: businesses.length, lost: businesses.filter((b) => b.salesStage === "olumsuz").length, steps };
 }
 
-// ---------- Telefon: randevu alma senaryosu (Rehber → Telefon ve aramadaki kart) ----------
+// ---------- Telefon: randevu alma senaryosu (aramadaki kart ve Cuswin-Arama-Senaryosu.pdf) ----------
 // Metinlerde "{gün}" saha gününün adıyla değiştirilir (ör. "Cuma").
 
 export type Line = { who: string; text: string; tone?: "them" | "close" };

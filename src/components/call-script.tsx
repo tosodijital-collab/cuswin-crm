@@ -1,7 +1,7 @@
 "use client";
 
 // "Ara"ya basınca kartın içinde açılan konuşma: açılış → sorular → bağla → tarih iste → teyit,
-// altında "ne derse ne diyeceğim". Metinler Rehber → Telefon ile aynı.
+// altında "ne derse ne diyeceğim". Metinler sales-playbook.ts ve Cuswin-Arama-Senaryosu.pdf ile aynı.
 
 import { useState } from "react";
 import { callScriptFor, type ScriptWho } from "@/lib/domain/call-script";

@@ -157,3 +157,14 @@ describe("telefon rehberi", () => {
     expect(pb.confirmationText("12 Kasım 14:00")).toBe("Merhaba, 12 Kasım 14:00'te kliniğinizdeyiz. 10 dakika sürecek. Görüşmek üzere. Özkan, Cuswin");
   });
 });
+
+describe("rehber içeriği", () => {
+  it("en sık itirazlar listede var; pilot adı ve eski rakamlar yok; teklif yollanmaz", async () => {
+    const g = await import("@/lib/domain/guide-content");
+    const pb = await import("@/lib/domain/sales-playbook");
+    for (const q of g.TOP_OBJECTIONS) expect(pb.OBJECTIONS.some((o) => o.q === q), q).toBe(true);
+    const all = JSON.stringify([g.DOOR_STEPS, g.PRODUCT_QA, g.COMPETITORS]);
+    expect(all).not.toMatch(/hakan|462|2\.934|%93|%60|11 sn|teklif şablon/i);
+    expect(all).toContain("%53");
+  });
+});
