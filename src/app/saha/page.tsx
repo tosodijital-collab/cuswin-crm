@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { AppointmentRow, CallTargetRow, VisitedRow } from "@/components/field-rows";
+import { isHot } from "@/components/insights";
 import { EmptyState, LoadState, PageTitle, Panel } from "@/components/ui";
 import { useData } from "@/lib/client/refresh";
 import { getRepository } from "@/lib/data";
@@ -132,7 +133,10 @@ export default function FieldPage() {
 }
 
 function DaySection({ plan, today, contacts }: { plan: FieldDayPlan; today: string; contacts: Map<string, ContactSummary> }) {
-  const { view, appointments, toCall, visited } = plan;
+  const { view, appointments, visited } = plan;
+  // Telefonda sorunu söylemiş (sıcak) klinikler önce aranır.
+  const hot = (id: string) => isHot([contacts.get(id)?.lastCall?.note, contacts.get(id)?.lastVisit?.note]);
+  const toCall = [...plan.toCall].sort((x, y) => Number(hot(y.business.id)) - Number(hot(x.business.id)));
   const { day } = view;
   // Randevu varsa rota randevu sırasıyla, yoksa bölgenin duraklarıyla çizilir.
   const routeStops: FieldStop[] = appointments.length

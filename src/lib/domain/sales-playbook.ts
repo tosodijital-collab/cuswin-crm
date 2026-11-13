@@ -322,3 +322,62 @@ export const MISSED_CALL_TEXT =
 export function confirmationText(when: string): string {
   return `Merhaba, ${when}'te kliniğinizdeyiz. 10 dakika sürecek. Görüşmek üzere. Özkan, Cuswin`;
 }
+
+// ---------- Canlı demo (kapıda 10 dakika) ----------
+
+/** Herkesin deneyebildiği demo hattı: arama ve WhatsApp aynı numara. Demo asistan KBB / medikal estetik kliniği gibi kurulu. */
+export const DEMO = {
+  phone: "0850 510 09 46",
+  e164: "+908505100946",
+  instagram: "@cuswin.tr",
+  /** Doktorun kendi telefonundan yazacağı örnek hasta mesajları. */
+  examples: ["Merhaba, burun estetiği fiyatı ne kadar?", "Dolgu yaptırmak istiyorum, bu hafta randevu var mı?", "Cumartesi açık mısınız?"],
+  steps: [
+    "QR'ı doktorun kendi telefonuna okut ya da numarayı kaydettirmeden WhatsApp'tan yazdır.",
+    "Hasta gibi yazsın: örneklerden birini ya da aklına geleni.",
+    "Cevap saniyeler içinde gelir. Sus, okumasını bekle.",
+    "Sonra sor: \"Bu cevabı sizde şu an kim, ne kadar sürede veriyor?\"",
+    "Tarih iste: \"Kurulum 3 gün sürüyor. Pazartesi mi başlayalım, çarşamba mı?\"",
+  ],
+} as const;
+
+/** Demo hattına WhatsApp sohbeti (ilk mesaj hazır). */
+export function demoWhatsappHref(text: string = DEMO.examples[0]): string {
+  return `https://wa.me/${DEMO.e164.slice(1)}?text=${encodeURIComponent(text)}`;
+}
+
+// ---------- Görüşmede öğrenilenler (tek dokunuş not) ----------
+
+/** Sorulara gelen cevaplar. "hot": Cuswin'in çözdüğü bir sorun; bu klinik sıcak aday. */
+export const INSIGHTS = [
+  { id: "aksam", label: "Akşam / hafta sonu bakan yok", hot: true },
+  { id: "yetisemiyor", label: "Telefona yetişemiyorlar", hot: true },
+  { id: "yogun", label: "Günde 30+ mesaj / arama", hot: true },
+  { id: "instagram", label: "Instagram'dan çok soru geliyor", hot: true },
+  { id: "takip", label: "Fiyat soranı takip etmiyorlar", hot: true },
+  { id: "ajans", label: "Reklam ajansı var", hot: false },
+  { id: "sistem", label: "Başka sistem kullanıyor", hot: false },
+  { id: "yetisiyor", label: "\"Yetişiyoruz\" diyor", hot: false },
+] as const;
+export type InsightId = (typeof INSIGHTS)[number]["id"];
+
+export const INSIGHT_PREFIX = "Öğrenilen: ";
+
+/** Seçilenleri nota yazılacak tek satıra çevirir ("Öğrenilen: A · B"). */
+export function insightLine(ids: readonly InsightId[]): string {
+  const labels = INSIGHTS.filter((i) => ids.includes(i.id)).map((i) => i.label);
+  return labels.length ? INSIGHT_PREFIX + labels.join(" · ") : "";
+}
+
+/** Nottaki "Öğrenilen:" satırını okur. */
+export function parseInsights(note: string | undefined): { labels: string[]; hot: boolean } {
+  const line = note?.split("\n").find((l) => l.startsWith(INSIGHT_PREFIX));
+  if (!line) return { labels: [], hot: false };
+  const labels = line.slice(INSIGHT_PREFIX.length).split(" · ").filter(Boolean);
+  return { labels, hot: labels.some((l) => INSIGHTS.some((i) => i.hot && i.label === l)) };
+}
+
+/** Öğrenilen satırını mevcut notun başına ekler. */
+export function withInsights(note: string | undefined, insights: string | undefined): string | undefined {
+  return [insights, note].filter(Boolean).join("\n") || undefined;
+}

@@ -4,6 +4,12 @@ import { useActionState, useEffect, useId, useState } from "react";
 import { recordCallAction, type ActionState } from "@/lib/actions";
 import { CALL_STATUS_LABELS, MEETING_TYPE_LABELS, SALES_STAGE_LABELS } from "@/lib/domain/labels";
 import { CALL_STATUSES, MEETING_TYPES, SALES_STAGES, type CallStatus, type SalesStage } from "@/lib/domain/types";
+import { formatDateTime, istanbulToUtc } from "@/lib/domain/time";
+import type { Business } from "@/lib/domain/types";
+import { confirmationText } from "@/lib/domain/sales-playbook";
+import { InsightsField } from "./insights";
+import { WhatsappTo } from "./send-whatsapp";
+import { closeSheet, openSheet } from "./sheet";
 import { showToast } from "./toast";
 import { buttonClass, FieldLabel, FormMessage, inputClass } from "./ui";
 
@@ -44,6 +50,7 @@ export function CallOutcomeForm({
   return (
     <form action={action} className="grid gap-3 sm:grid-cols-2">
       <input type="hidden" name="businessId" value={businessId} />
+      <InsightsField />
       <div>
         <FieldLabel htmlFor={`${uid}-result`}>{resultLabel}</FieldLabel>
         <select
@@ -176,11 +183,14 @@ export function AppointmentQuickForm({
   onDone,
   defaultDate,
   defaultLocation,
+  business,
 }: {
   businessId: string;
   currentStage: SalesStage;
   today: string;
   onDone?: () => void;
+  /** Verilirse kayıttan sonra WhatsApp teyit mesajı adımı açılır. */
+  business?: Business;
   /** Saha gününden açıldıysa o gün önceden seçili gelir. */
   defaultDate?: string;
   /** Yüz yüze randevuda kliniğin adresi; takvimde yol tarifi için. */
@@ -188,16 +198,29 @@ export function AppointmentQuickForm({
 }) {
   const [state, action, pending] = useActionState<ActionState, FormData>(recordCallAction, { ok: false });
   const uid = useId();
+  const [when, setWhen] = useState<string>();
   useEffect(() => {
-    if (state.ok && onDone) {
-      if (state.message) showToast(state.message);
-      onDone();
-    }
-  }, [state, onDone]);
+    if (!state.ok) return;
+    if (state.message) showToast(state.message);
+    if (business && when) openConfirmSheet(business, when);
+    onDone?.();
+    // Yalnızca kayıt sonucu değişince çalışmalı.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state]);
 
   return (
-    <form action={action} className="grid gap-3">
+    <form
+      action={action}
+      onSubmit={(e) => {
+        const f = new FormData(e.currentTarget);
+        const d = String(f.get("apptDate") ?? "");
+        const t = String(f.get("apptTime") ?? "");
+        if (d && t) setWhen(formatDateTime(istanbulToUtc(d, t).toISOString()));
+      }}
+      className="grid gap-3"
+    >
       <input type="hidden" name="businessId" value={businessId} />
+      <InsightsField />
       <input type="hidden" name="result" value="gorusuldu" />
       {currentStage !== "randevu_alindi" && <input type="hidden" name="stage" value="randevu_alindi" />}
       <input type="hidden" name="withAppointment" value="1" />
@@ -262,8 +285,19 @@ export function AppointmentQuickForm({
   );
 }
 
+/** Randevu kaydedildi: aynı anda WhatsApp'tan teyit (gelmeme oranını düşürür). */
+export function openConfirmSheet(b: Business, when: string) {
+  openSheet(
+    `Randevu kaydedildi: ${when}`,
+    <div className="grid gap-3">
+      <p className="text-[15px] text-muted">Şimdi teyit at. Yazılı teyit randevuya gelmemeyi azaltır.</p>
+      <WhatsappTo business={b} message={confirmationText(when)} label="Teyidi WhatsApp'tan gönder" onSent={closeSheet} />
+    </div>,
+  );
+}
+
 /** İşletme sayfası için: "Randevu aldım" düğmesi, dokununca tarih/saat formu açılır. */
-export function AppointmentQuickToggle(props: { businessId: string; currentStage: SalesStage; today: string }) {
+export function AppointmentQuickToggle(props: { businessId: string; currentStage: SalesStage; today: string; business?: Business }) {
   const [open, setOpen] = useState(false);
   if (!open) {
     return (

@@ -6,6 +6,7 @@ import { notifyDataChanged } from "@/lib/client/refresh";
 import { getRepository } from "@/lib/data";
 import { REFERRAL_NOTE_PREFIX } from "@/lib/domain/report";
 import { RuleError } from "@/lib/domain/rules";
+import { withInsights } from "@/lib/domain/sales-playbook";
 import { addDays, istanbulToUtc, toDateStr } from "@/lib/domain/time";
 import {
   CALL_STATUSES,
@@ -59,6 +60,8 @@ const callSchema = z.object({
   nextTime: optionalTime,
   /** Tanıtımın gönderildiği WhatsApp numarası; yeni bir numaraysa kişilere eklenir. */
   whatsapp: optionalText(40),
+  /** Görüşmede öğrenilenler ("Öğrenilen: …"); notun başına eklenir. */
+  insights: optionalText(400),
 });
 
 const callAppointmentSchema = z.object({
@@ -72,7 +75,8 @@ const callAppointmentSchema = z.object({
 /** Arama sonucunu kaydeder; "Randevu aldım" seçildiyse aynı adımda randevuyu da oluşturur. */
 export async function recordCallAction(_: ActionState, formData: FormData): Promise<ActionState> {
   return run(async () => {
-    const { businessId, whatsapp, ...input } = callSchema.parse(fields(formData));
+    const { businessId, whatsapp, insights, ...rest } = callSchema.parse(fields(formData));
+    const input = { ...rest, note: withInsights(rest.note, insights) };
     const appt = formData.get("withAppointment") ? callAppointmentSchema.parse(fields(formData)) : undefined;
     const startsAt = appt ? istanbulToUtc(appt.apptDate, appt.apptTime) : undefined;
     if (startsAt && startsAt.getTime() < Date.now()) throw new RuleError("Randevu saati geçmişte olamaz.");
@@ -112,12 +116,14 @@ const visitSchema = z.object({
   nextTime: optionalTime,
   referralName: optionalText(200),
   referralPhone: optionalText(40),
+  insights: optionalText(400),
 });
 
 /** Saha ziyareti: aramadan ayrı kaydedilir; randevuya bağlıysa randevu "yapıldı" olur. */
 export async function recordVisitAction(_: ActionState, formData: FormData): Promise<ActionState> {
   return run(async () => {
-    const { businessId, appointmentId, referralName, referralPhone, ...input } = visitSchema.parse(fields(formData));
+    const { businessId, appointmentId, referralName, referralPhone, insights, ...rest } = visitSchema.parse(fields(formData));
+    const input = { ...rest, note: withInsights(rest.note, insights) };
     if (referralName && referralName.length < 2) throw new RuleError("Tanıştırılan kliniğin adını yazın.");
     const repo = getRepository();
     const referral = referralName && [referralName, referralPhone].filter(Boolean).join(", ");

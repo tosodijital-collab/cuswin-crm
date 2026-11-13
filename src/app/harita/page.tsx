@@ -8,12 +8,13 @@ import { Badge, LoadState, Panel } from "@/components/ui";
 import { useData } from "@/lib/client/refresh";
 import { getRepository } from "@/lib/data";
 import { summarizeContacts } from "@/lib/domain/field-plan";
-import { formatDistance, MAP_STATUS, mapPoints, nearest, distanceMeters, type LatLng, type MapStatus } from "@/lib/domain/map-points";
+import { useGeocoded } from "@/lib/client/geocode";
+import { coordsOf } from "@/lib/domain/contact-info";
+import { distanceMeters, formatDistance, MAP_STATUS, mapPoints, nearest, nextStop, type LatLng, type MapStatus } from "@/lib/domain/map-points";
 import { SEGMENTS, type Segment } from "@/lib/domain/segments";
 import { formatDateTime, toDateStr } from "@/lib/domain/time";
 
 type Me = LatLng & { accuracy: number };
-type GeoState = "kapali" | "araniyor" | "acik" | "izin-yok";
 
 /**
  * Saha haritası: kapı kapı gezerken çevredeki klinikler, durum renkleriyle.
@@ -27,36 +28,70 @@ export default function MapPage() {
   const [segment, setSegment] = useState<Segment>("estetik");
   const [selectedId, setSelectedId] = useState<string>();
   const [me, setMe] = useState<Me>();
-  const [geo, setGeo] = useState<GeoState>("kapali");
+  const [watching, setWatching] = useState(false);
+  const [highAccuracy, setHighAccuracy] = useState(true);
+  const [geoMsg, setGeoMsg] = useState<string>();
   const [follow, setFollow] = useState(false);
 
-  // Konum izleme: sayfadan çıkınca durur.
+  // Konum izleme: sayfadan çıkınca durur. Yüksek doğrulukla bulunamazsa (kapalı alan) normal doğrulukla tekrar dener.
   useEffect(() => {
-    if (geo !== "araniyor" && geo !== "acik") return;
-    if (!("geolocation" in navigator)) return;
+    if (!watching) return;
     const watch = navigator.geolocation.watchPosition(
       (p) => {
         setMe({ lat: p.coords.latitude, lng: p.coords.longitude, accuracy: p.coords.accuracy });
-        setGeo("acik");
+        setGeoMsg(undefined);
       },
       (e) => {
-        setGeo(e.code === e.PERMISSION_DENIED ? "izin-yok" : "kapali");
-        setFollow(false);
+        if (e.code === e.PERMISSION_DENIED) {
+          setWatching(false);
+          setFollow(false);
+          setGeoMsg(
+            "Konum izni kapalı. iPhone: Ayarlar → Gizlilik ve Güvenlik → Konum Servisleri → Safari Web Siteleri (ya da Chrome) → \"Uygulamayı Kullanırken\". Sonra sayfayı yenile.",
+          );
+        } else if (highAccuracy) {
+          setHighAccuracy(false);
+          setGeoMsg("GPS zayıf, yaklaşık konum deneniyor…");
+        } else {
+          setWatching(false);
+          setGeoMsg("Konum bulunamadı. Açık alana çık ya da Konum Servisleri'nin açık olduğunu kontrol et, sonra tekrar bas.");
+        }
       },
-      { enableHighAccuracy: true, maximumAge: 10_000, timeout: 20_000 },
+      { enableHighAccuracy: highAccuracy, maximumAge: 15_000, timeout: highAccuracy ? 12_000 : 20_000 },
     );
     return () => navigator.geolocation.clearWatch(watch);
-  }, [geo]);
+  }, [watching, highAccuracy]);
+
+  const startLocate = () => {
+    setFollow(true);
+    if (!("geolocation" in navigator)) {
+      setGeoMsg("Bu tarayıcı konum vermiyor.");
+      return;
+    }
+    if (!watching) {
+      setHighAccuracy(true);
+      setGeoMsg(undefined);
+      setWatching(true);
+    }
+  };
 
   const now = useMemo(() => new Date(), []);
   const today = toDateStr(now);
-  const view = useMemo(() => {
+  const segmentData = useMemo(() => {
     if (!data) return undefined;
     const [businesses, appointments, history] = data;
-    const contacts = summarizeContacts(history);
-    const { points, missing } = mapPoints(businesses.filter(SEGMENTS[segment].match), appointments.map((a) => a.appointment), contacts, now);
-    return { points, missing, contacts };
-  }, [data, segment, now]);
+    return {
+      businesses: businesses.filter(SEGMENTS[segment].match),
+      appointments: appointments.map((a) => a.appointment),
+      contacts: summarizeContacts(history),
+    };
+  }, [data, segment]);
+  const withoutLink = useMemo(() => segmentData?.businesses.filter((b) => !coordsOf(b.mapsUrl)) ?? [], [segmentData]);
+  const geocoded = useGeocoded(withoutLink);
+  const view = useMemo(() => {
+    if (!segmentData) return undefined;
+    const { points, missing } = mapPoints(segmentData.businesses, segmentData.appointments, segmentData.contacts, now, geocoded.coords);
+    return { points, missing, contacts: segmentData.contacts };
+  }, [segmentData, now, geocoded.coords]);
 
   const select = useCallback((id: string) => {
     setSelectedId(id);
@@ -68,7 +103,12 @@ export default function MapPage() {
   const counts = view.points.reduce((c, p) => ({ ...c, [p.status]: (c[p.status] ?? 0) + 1 }), {} as Partial<Record<MapStatus, number>>);
   const close = view.points.length && me ? nearest(view.points, me, 8) : [];
 
-  const badgeFor = (status: MapStatus, meters?: number, when?: string) => (
+  const nextFor = (id: string) => {
+    const n = nextStop(view.points, id);
+    return n && { name: n.point.business.name, distance: formatDistance(n.meters), go: () => select(n.point.business.id) };
+  };
+
+  const badgeFor = (status: MapStatus, meters?: number, when?: string, approx?: boolean) => (
     <>
       <Badge>
         <span aria-hidden className="mr-1.5 inline-block size-2.5 rounded-full" style={{ background: MAP_STATUS[status].color }} />
@@ -76,6 +116,7 @@ export default function MapPage() {
       </Badge>
       {when && <Badge tone="meet">{when}</Badge>}
       {meters !== undefined && <Badge>{formatDistance(meters)}</Badge>}
+      {approx && <Badge tone="late">Konum adresten, yaklaşık</Badge>}
     </>
   );
 
@@ -103,16 +144,13 @@ export default function MapPage() {
           </div>
           <button
             type="button"
-            onClick={() => {
-              setFollow(true);
-              setGeo((g) => (g === "acik" ? g : "araniyor"));
-            }}
+            onClick={startLocate}
             className={`pointer-events-auto inline-flex min-h-12 items-center gap-2 rounded-full border px-4 text-[15px] font-semibold shadow-sm ${
-              follow && geo === "acik" ? "border-[#2563eb] bg-[#2563eb] text-white" : "border-line bg-surface"
+              follow && me ? "border-[#2563eb] bg-[#2563eb] text-white" : "border-line bg-surface"
             }`}
           >
             <LocateIcon />
-            {geo === "araniyor" ? "Bulunuyor" : "Konumum"}
+            {watching && !me ? "Bulunuyor" : "Konumum"}
           </button>
         </div>
       </div>
@@ -126,11 +164,7 @@ export default function MapPage() {
             </li>
           ))}
         </ul>
-        {geo === "izin-yok" && (
-          <p className="mt-2 rounded-md bg-late-soft px-3 py-2 text-sm text-late">
-            Konum izni kapalı. Ayarlar → Safari (ya da Chrome) → Konum → &quot;Uygulamayı kullanırken&quot;.
-          </p>
-        )}
+        {geoMsg && <p className="mt-2 rounded-md bg-late-soft px-3 py-2 text-sm text-late">{geoMsg}</p>}
 
         {selected ? (
           <Panel className="mt-3 overflow-hidden">
@@ -143,8 +177,10 @@ export default function MapPage() {
                 selected.status,
                 me ? distanceMeters(me, selected) : undefined,
                 selected.appointment ? formatDateTime(selected.appointment.startsAt) : undefined,
+                selected.approx,
               )}
               onClose={() => setSelectedId(undefined)}
+              next={nextFor(selected.business.id)}
             />
           </Panel>
         ) : (
@@ -174,9 +210,10 @@ export default function MapPage() {
           </Panel>
         )}
 
-        {view.missing > 0 && (
+        {geocoded.pending > 0 && <p className="mt-3 text-sm text-muted">Adresten konum aranıyor: {geocoded.pending} klinik kaldı…</p>}
+        {view.missing > 0 && geocoded.pending === 0 && (
           <p className="mt-3 text-sm text-muted">
-            {view.missing} kliniğin haritada konumu yok (Google Maps bağlantısı olmayanlar). Onlar{" "}
+            {view.missing} kliniğin konumu bulunamadı (Maps bağlantısı ya da açık adres yok). Onlar{" "}
             <Link href="/saha" className="font-medium text-meet underline">
               Saha
             </Link>{" "}

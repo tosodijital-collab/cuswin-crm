@@ -10,6 +10,7 @@ import type { Activity, Business, CallTask } from "@/lib/domain/types";
 import { AppointmentQuickForm } from "./call-outcome-form";
 import { CallResult } from "./call-result";
 import { CallScript } from "./call-script";
+import { InsightSummary } from "./insights";
 import { FormMessage } from "./ui";
 
 export type CallRowData = {
@@ -46,6 +47,7 @@ export function CallRow({ row, today, tone }: { row: CallRowData; today: string;
               </span>
             )}
           </p>
+          <InsightSummary notes={[row.lastCall?.note]} />
         </div>
         <div className="grid grid-cols-3 gap-2 sm:flex sm:flex-wrap sm:items-center xl:shrink-0 xl:flex-nowrap">
           {tel ? (
@@ -110,7 +112,7 @@ export function CallRow({ row, today, tone }: { row: CallRowData; today: string;
               <CallResult business={b} today={today} onDone={close} />
             </>
           ) : open === "randevu" ? (
-            <AppointmentQuickForm businessId={b.id} currentStage={b.salesStage} today={today} onDone={close} />
+            <AppointmentQuickForm business={b} businessId={b.id} currentStage={b.salesStage} today={today} onDone={close} />
           ) : (
             <>
               <p className="mb-2 text-[17px] font-semibold">Nasıl bitti?</p>

@@ -5,12 +5,14 @@
 
 import { useActionState, useCallback, useEffect, useState } from "react";
 import { recordCallAction, type ActionState } from "@/lib/actions";
-import { whatsappChatHref, whatsappNumberOf } from "@/lib/domain/contact-info";
-import { MISSED_CALL_TEXT } from "@/lib/domain/sales-playbook";
+import { whatsappNumberOf } from "@/lib/domain/contact-info";
+import { MISSED_CALL_TEXT, type InsightId } from "@/lib/domain/sales-playbook";
 import { addDays } from "@/lib/domain/time";
 import type { Business, VisitResult } from "@/lib/domain/types";
 import { AppointmentQuickForm, CallOutcomeForm } from "./call-outcome-form";
-import { SendWhatsapp } from "./send-whatsapp";
+import { InsightChips, InsightsField, InsightsProvider } from "./insights";
+import { SendWhatsapp, WhatsappTo } from "./send-whatsapp";
+import { closeSheet, openSheet } from "./sheet";
 import { showToast } from "./toast";
 import { FieldLabel, FormMessage, inputClass } from "./ui";
 import { VisitForm } from "./visit-form";
@@ -19,7 +21,7 @@ const option =
   "inline-flex min-h-12 w-full items-center justify-center rounded-md border border-line bg-surface px-3 text-[15px] font-medium hover:bg-paper disabled:opacity-50";
 const strong = "inline-flex min-h-13 w-full items-center justify-center rounded-md px-4 text-[16px] font-semibold text-white";
 
-type Panel = "randevu" | "bilgi" | "sonra" | "diger" | "ziyaret" | "acmadi";
+type Panel = "randevu" | "bilgi" | "sonra" | "diger" | "ziyaret";
 
 /** Tek dokunuşla kaydedilen sonuç (açmadı, ilgilenmiyor). */
 function QuickResult({
@@ -45,6 +47,7 @@ function QuickResult({
     <form action={action} className="contents">
       <input type="hidden" name="businessId" value={businessId} />
       <input type="hidden" name="result" value={result} />
+      <InsightsField />
       <button type="submit" disabled={pending} className={className}>
         {pending ? "Kaydediliyor" : label}
       </button>
@@ -69,6 +72,7 @@ export function CallLaterForm({ businessId, today, onDone }: { businessId: strin
     <form action={action} className="grid gap-2">
       <input type="hidden" name="businessId" value={businessId} />
       <input type="hidden" name="result" value="tekrar_aranacak" />
+      <InsightsField />
       <p className="text-sm text-muted">Tarihsiz kapatma: &quot;Hangi gün, saat kaçta arayayım?&quot; diye sor, onu yaz.</p>
       <div className="grid grid-cols-[1fr_7rem] gap-2">
         <div>
@@ -107,22 +111,36 @@ export function CallResult({
   onVisitSaved?: (r: VisitResult) => void;
 }) {
   const [panel, setPanel] = useState<Panel>();
+  const [insights, setInsights] = useState<InsightId[]>([]);
   const back = useCallback(() => setPanel(undefined), []);
-  const missedOnWhatsapp = whatsappChatHref(whatsappNumberOf(b), MISSED_CALL_TEXT);
-  const afterMissed = useCallback(() => (missedOnWhatsapp ? setPanel("acmadi") : onDone()), [missedOnWhatsapp, onDone]);
+  const hasMobile = Boolean(whatsappNumberOf(b));
+  const afterMissed = useCallback(() => {
+    onDone();
+    if (!hasMobile) return;
+    openSheet(
+      "Açmadı: kısa bir mesaj bırak",
+      <div className="grid gap-3">
+        <p className="text-[15px] text-muted">Kaydedildi, yarın tekrar listende. Mesaj bırakmak geri dönüş şansını artırır.</p>
+        <WhatsappTo business={b} message={MISSED_CALL_TEXT} label="WhatsApp'tan gönder" onSent={closeSheet} />
+      </div>,
+    );
+  }, [b, hasMobile, onDone]);
   const address = [b.address, b.district].filter(Boolean).join(", ") || undefined;
 
-  if (panel) {
+  return <InsightsProvider selected={insights}>{panel ? renderPanel() : renderMain()}</InsightsProvider>;
+
+  function renderPanel() {
+    if (!panel) return null;
     return (
       <div className="grid gap-3">
         <div className="flex items-center justify-between gap-3">
           <p className="text-[17px] font-semibold">{PANEL_TITLES[panel]}</p>
-          <button type="button" onClick={panel === "acmadi" ? onDone : back} className="min-h-11 px-2 text-[15px] text-muted">
-            {panel === "acmadi" ? "Kapat" : "‹ Geri"}
+          <button type="button" onClick={back} className="min-h-11 px-2 text-[15px] text-muted">
+            ‹ Geri
           </button>
         </div>
         {panel === "randevu" && (
-          <AppointmentQuickForm
+          <AppointmentQuickForm business={b}
             businessId={b.id}
             currentStage={b.salesStage}
             today={today}
@@ -137,26 +155,16 @@ export function CallResult({
         {panel === "ziyaret" && (
           <VisitForm businessId={b.id} currentStage={b.salesStage} today={today} onDone={onDone} onSaved={onVisitSaved} />
         )}
-        {panel === "acmadi" && missedOnWhatsapp && (
-          <>
-            <p className="text-[15px] text-muted">Kaydedildi, yarın tekrar listende. İstersen şimdi kısa bir mesaj bırak:</p>
-            <a
-              href={missedOnWhatsapp}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={onDone}
-              className={`${strong} bg-call hover:bg-call/90`}
-            >
-              WhatsApp&apos;tan &quot;ulaşamadım&quot; yaz
-            </a>
-          </>
-        )}
       </div>
     );
   }
 
-  return (
+  function renderMain() {
+    return (
     <div className="grid grid-cols-2 gap-2">
+      <div className="col-span-2 mb-2">
+        <InsightChips selected={insights} onChange={setInsights} />
+      </div>
       <button type="button" onClick={() => setPanel("randevu")} className={`${strong} col-span-2 bg-meet hover:bg-meet/90`}>
         Randevu aldım
       </button>
@@ -177,7 +185,8 @@ export function CallResult({
         </button>
       )}
     </div>
-  );
+    );
+  }
 }
 
 const PANEL_TITLES: Record<Panel, string> = {
@@ -186,5 +195,4 @@ const PANEL_TITLES: Record<Panel, string> = {
   sonra: "Ne zaman arayayım?",
   diger: "Diğer sonuç",
   ziyaret: "Ziyaret sonucu",
-  acmadi: "Açmadı",
 };

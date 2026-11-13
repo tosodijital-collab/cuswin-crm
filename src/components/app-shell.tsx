@@ -4,6 +4,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import { getBrowserSupabase, isSupabaseConfigured } from "@/lib/supabase/client";
 import { MainNav } from "./main-nav";
+import { SheetHost } from "./sheet";
 import { Toaster } from "./toast";
 import { UpdateChecker } from "./update-checker";
 
@@ -58,6 +59,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         )}
       </main>
       <Toaster />
+      <SheetHost />
       <UpdateChecker />
     </>
   );

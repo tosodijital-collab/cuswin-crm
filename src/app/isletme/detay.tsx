@@ -71,7 +71,7 @@ export function BusinessDetailScreen({ id }: { id: string }) {
               {b.failedStreak > 0 && ` Ardışık ulaşılamama: ${b.failedStreak}/${MAX_FAILED_STREAK}.`}
             </p>
             <div className="mb-4">
-              <AppointmentQuickToggle businessId={b.id} currentStage={b.salesStage} today={today} />
+              <AppointmentQuickToggle businessId={b.id} currentStage={b.salesStage} today={today} business={b} />
             </div>
             <CallOutcomeForm businessId={b.id} currentStage={b.salesStage} today={today} />
           </Panel>

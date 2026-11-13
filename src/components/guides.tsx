@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { DemoButton } from "@/components/demo";
 import {
   CLINIC_TYPE_LINES,
   DO_RULES,
@@ -133,6 +134,7 @@ export function VisitGuide() {
       <Step n={3} title="Canlı demo" time="3 dk">
         Kendi telefonunuzdan şu hesaba hasta gibi yazın: &quot;Dolgu ne kadar?&quot; Cevap 3 saniyede gelir. Sonra paneli göster: konuşma
         kayıtlı, takip planı hazır.
+        <DemoButton className="mt-2 flex min-h-11 w-full items-center justify-center rounded-md border border-meet/40 px-3 text-[15px] font-medium text-meet" />
       </Step>
       <Step n={4} title="Güven" time="2 dk">
         Kurulumu biz yapıyoruz. Siz onay vermeden hiçbir şey açılmıyor. Sadece sizin fiyat listenizle konuşur, tıbbi tavsiye vermez. Hasta
@@ -218,7 +220,7 @@ function Step({ n, title, time, children }: { n: number; title: string; time: st
         <p className="font-semibold">
           {title} <span className="text-sm font-normal text-muted">{time}</span>
         </p>
-        <p>{children}</p>
+        <div>{children}</div>
       </div>
     </div>
   );

@@ -5,7 +5,15 @@ import type { ContactSummary } from "./field-plan";
 import type { Appointment, Business } from "./types";
 
 export type MapStatus = "randevu" | "aranacak" | "ziyaret" | "musteri" | "kapali";
-export type MapPoint = { business: Business; lat: number; lng: number; status: MapStatus; appointment?: Appointment };
+export type MapPoint = {
+  business: Business;
+  lat: number;
+  lng: number;
+  status: MapStatus;
+  appointment?: Appointment;
+  /** Konum Maps bağlantısından değil adresten bulundu (yaklaşık). */
+  approx?: boolean;
+};
 export type LatLng = { lat: number; lng: number };
 
 export const MAP_STATUS: Record<MapStatus, { label: string; color: string }> = {
@@ -30,6 +38,8 @@ export function mapPoints(
   appointments: Appointment[],
   contacts: Map<string, ContactSummary>,
   now: Date,
+  /** Adresten bulunan konumlar (Maps bağlantısı olmayanlar için). */
+  geocoded: ReadonlyMap<string, LatLng> = new Map(),
 ): { points: MapPoint[]; missing: number } {
   const upcoming = new Map<string, Appointment>();
   for (const a of [...appointments].sort((x, y) => x.startsAt.localeCompare(y.startsAt))) {
@@ -38,13 +48,14 @@ export function mapPoints(
   const points: MapPoint[] = [];
   let missing = 0;
   for (const b of businesses) {
-    const c = coordsOf(b.mapsUrl);
+    const exact = coordsOf(b.mapsUrl);
+    const c = exact ?? geocoded.get(b.id);
     if (!c) {
       missing++;
       continue;
     }
     const appointment = upcoming.get(b.id);
-    points.push({ business: b, ...c, appointment, status: mapStatus(b, appointment, contacts.get(b.id)) });
+    points.push({ business: b, lat: c.lat, lng: c.lng, appointment, status: mapStatus(b, appointment, contacts.get(b.id)), approx: !exact });
   }
   return { points, missing };
 }
@@ -71,4 +82,26 @@ export function nearest(points: MapPoint[], from: LatLng, limit: number): { poin
     .map((point) => ({ point, meters: distanceMeters(from, point) }))
     .sort((a, b) => a.meters - b.meters)
     .slice(0, limit);
+}
+
+/** Adresten konum aramak için sorgu; adres yoksa undefined (ilçe tek başına yanlış nokta verir). */
+export function geocodeQuery(b: Pick<Business, "address" | "district">): string | undefined {
+  const address = b.address?.trim();
+  if (!address || address.length < 6 || /^demo /i.test(address)) return undefined;
+  return [address, b.district, "Ankara", "Türkiye"].filter(Boolean).join(", ");
+}
+
+/** Ankara ve çevresi dışına düşen sonuç yanlış eşleşmedir. */
+export function nearAnkara(c: LatLng): boolean {
+  return c.lat > 39.3 && c.lat < 40.6 && c.lng > 31.8 && c.lng < 33.9;
+}
+
+/** Bir noktadan sonraki en yakın, gidilmemiş (randevulu ya da gidilmedi) klinik. */
+export function nextStop(points: MapPoint[], fromId: string): { point: MapPoint; meters: number } | undefined {
+  const from = points.find((p) => p.business.id === fromId);
+  if (!from) return undefined;
+  return points
+    .filter((p) => p.business.id !== fromId && (p.status === "aranacak" || p.status === "randevu"))
+    .map((point) => ({ point, meters: distanceMeters(from, point) }))
+    .sort((a, b) => a.meters - b.meters)[0];
 }

@@ -4,7 +4,9 @@ import { useActionState, useEffect, useId, useState } from "react";
 import { recordVisitAction, type ActionState } from "@/lib/actions";
 import { SALES_STAGE_LABELS, VISIT_RESULT_LABELS } from "@/lib/domain/labels";
 import { suggestedFollowUp } from "@/lib/domain/rules";
+import { insightLine, type InsightId } from "@/lib/domain/sales-playbook";
 import { SALES_STAGES, VISIT_RESULTS, type SalesStage, type VisitResult } from "@/lib/domain/types";
+import { InsightChips } from "./insights";
 import { showToast } from "./toast";
 import { buttonClass, FieldLabel, FormMessage, inputClass } from "./ui";
 
@@ -28,6 +30,7 @@ export function VisitForm({
 }) {
   const [state, action, pending] = useActionState<ActionState, FormData>(recordVisitAction, { ok: false });
   const [result, setResult] = useState<VisitResult>();
+  const [insights, setInsights] = useState<InsightId[]>([]);
   const uid = useId();
 
   useEffect(() => {
@@ -81,6 +84,13 @@ export function VisitForm({
           </div>
           <p className="col-span-2 -mt-1 text-sm text-muted">Tarih koymadan çıkma. O gün Bugün ekranında aranacaklara düşer.</p>
         </div>
+      )}
+
+      {result && result !== "kapali" && (
+        <>
+          <InsightChips selected={insights} onChange={setInsights} />
+          {insights.length > 0 && <input type="hidden" name="insights" value={insightLine(insights)} />}
+        </>
       )}
 
       {result && result !== "kapali" && (

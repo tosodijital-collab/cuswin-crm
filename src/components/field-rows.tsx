@@ -8,13 +8,16 @@ import { useCallback, useState, type ReactNode } from "react";
 import { formatPhone, mapsHref, telHref, whatsappChatHref, whatsappNumberOf } from "@/lib/domain/contact-info";
 import type { AppointmentItem, ContactSummary } from "@/lib/domain/field-plan";
 import { CALL_STATUS_LABELS, CATEGORY_LABELS, VISIT_RESULT_LABELS } from "@/lib/domain/labels";
-import { confirmationText, FOLLOW_UPS } from "@/lib/domain/sales-playbook";
+import { FOLLOW_UPS } from "@/lib/domain/sales-playbook";
 import { formatDateTime, formatTime, relativeDay, toDateStr } from "@/lib/domain/time";
 import type { Business, VisitResult } from "@/lib/domain/types";
-import { AppointmentQuickForm } from "./call-outcome-form";
+import { AppointmentQuickForm, openConfirmSheet } from "./call-outcome-form";
 import { CallResult } from "./call-result";
 import { CallScript } from "./call-script";
+import { DemoButton } from "./demo";
+import { InsightSummary } from "./insights";
 import { SendWhatsapp } from "./send-whatsapp";
+import { closeSheet, openSheet } from "./sheet";
 import { Badge, StageBadge } from "./ui";
 import { VisitForm } from "./visit-form";
 
@@ -49,31 +52,20 @@ function Panelish({ children }: { children: ReactNode }) {
  * Ziyaretten hemen sonra: satış kiti "aynı gün tanıtım gönder, tarih koy, tanıştırma iste".
  * Tarih ve tanıştırma ziyaret formunda alındı; burada yalnızca gönderme kalır.
  */
-function AfterVisit({
-  business: b,
-  result,
-  today,
-  onClose,
-}: {
-  business: Business;
-  result: VisitResult;
-  today: string;
-  onClose: () => void;
-}) {
-  if (result === "ilgilenmiyor" || result === "kapali") return null;
-  return (
-    <Panelish>
-      <div className="mb-3 flex items-start justify-between gap-3">
-        <div>
-          <p className="font-semibold">Sıradaki adım: tanıtımı şimdi gönder</p>
-          <p className="text-sm text-muted">Satış kuralı: görüşmeden sonra aynı gün. {VISIT_RESULT_LABELS[result]}.</p>
-        </div>
-        <button type="button" onClick={onClose} className="min-h-11 shrink-0 px-2 text-[15px] text-muted">
-          Sonra
-        </button>
-      </div>
-      <SendWhatsapp business={b} today={today} onDone={onClose} />
-    </Panelish>
+/**
+ * Ziyaretten hemen sonra: satış kiti "aynı gün tanıtım gönder". Alt panelde açılır; kart listede yer
+ * değiştirse de adım kaybolmaz.
+ */
+function openAfterVisit(b: Business, result: VisitResult, today: string) {
+  if (result === "ilgilenmiyor" || result === "kapali") return;
+  openSheet(
+    "Sıradaki adım: tanıtımı şimdi gönder",
+    <div className="grid gap-3">
+      <p className="text-[15px] text-muted">
+        {b.name}. Satış kuralı: görüşmeden sonra aynı gün. {VISIT_RESULT_LABELS[result]}.
+      </p>
+      <SendWhatsapp business={b} today={today} onDone={closeSheet} />
+    </div>,
   );
 }
 
@@ -88,11 +80,9 @@ export function AppointmentRow({
   showDate?: boolean;
 }) {
   const [open, setOpen] = useState<false | "sonuc" | "sonra">(false);
-  const [saved, setSaved] = useState<VisitResult>();
   const close = useCallback(() => setOpen((v) => (v === "sonuc" ? false : v)), []);
   const done = a.status === "yapildi";
   const tel = telHref(b.phone);
-  const confirm = whatsappChatHref(whatsappNumberOf(b), confirmationText(formatDateTime(a.startsAt)));
 
   return (
     <li className={`border-b border-line last:border-b-0 ${done ? "bg-paper/50" : ""}`}>
@@ -111,6 +101,7 @@ export function AppointmentRow({
               </p>
             )}
             {done && a.outcome && <p className="mt-1 text-sm">{a.outcome}</p>}
+            <InsightSummary notes={[a.note]} />
           </BusinessHeader>
           {!done && (
             <div className="mt-3 grid grid-cols-2 gap-2">
@@ -125,17 +116,20 @@ export function AppointmentRow({
               >
                 Ziyaret sonucu
               </button>
+              <DemoButton className={`${btn} col-span-2 border-meet/40 text-meet`} />
               <div className="col-span-2 flex flex-wrap gap-x-4 gap-y-1 text-[15px]">
                 {tel && (
-                  <a href={tel} className="font-medium tabular-nums text-call">
+                  <a href={tel} className="min-h-9 font-medium tabular-nums text-call">
                     Ara · {formatPhone(b.phone)}
                   </a>
                 )}
-                {confirm && (
-                  <a href={confirm} target="_blank" rel="noopener noreferrer" className="font-medium text-meet">
-                    Teyit mesajı
-                  </a>
-                )}
+                <button
+                  type="button"
+                  onClick={() => openConfirmSheet(b, formatDateTime(a.startsAt))}
+                  className="min-h-9 font-medium text-meet"
+                >
+                  Teyit mesajı
+                </button>
               </div>
             </div>
           )}
@@ -143,11 +137,10 @@ export function AppointmentRow({
       </div>
       {open === "sonuc" && (
         <Panelish>
-          <VisitForm businessId={b.id} currentStage={b.salesStage} today={today} appointmentId={a.id} onDone={close} onSaved={setSaved} />
+          <VisitForm businessId={b.id} currentStage={b.salesStage} today={today} appointmentId={a.id} onDone={close} onSaved={(r) => openAfterVisit(b, r, today)} />
         </Panelish>
       )}
-      {saved && <AfterVisit business={b} result={saved} today={today} onClose={() => setSaved(undefined)} />}
-    </li>
+          </li>
   );
 }
 
@@ -175,7 +168,6 @@ export function CallTargetRow({
   contact?: ContactSummary;
 }) {
   const [open, setOpen] = useState<false | CallPanel>(false);
-  const [saved, setSaved] = useState<VisitResult>();
   const close = useCallback(() => setOpen(false), []);
   const toggle = (k: CallPanel) => setOpen((v) => (v === k ? false : k));
   const tel = telHref(b.phone);
@@ -191,6 +183,7 @@ export function CallTargetRow({
               {b.failedStreak > 0 && ` (${b.failedStreak}/3 ulaşılamadı)`}
             </p>
           )}
+          <InsightSummary notes={[contact?.lastCall?.note, contact?.lastVisit?.note]} />
         </BusinessHeader>
         <div className="mt-3 grid grid-cols-2 gap-2">
           {tel ? (
@@ -226,7 +219,7 @@ export function CallTargetRow({
 
       {open === "randevu" && (
         <Panelish>
-          <AppointmentQuickForm
+          <AppointmentQuickForm business={b}
             businessId={b.id}
             currentStage={b.salesStage}
             today={today}
@@ -246,17 +239,16 @@ export function CallTargetRow({
           </div>
           <CallScript business={b} fieldDate={fieldDate} today={today} />
           <p className="mb-2 mt-5 text-[17px] font-semibold">Nasıl bitti?</p>
-          <CallResult business={b} today={today} fieldDate={fieldDate} onDone={close} allowVisit onVisitSaved={setSaved} />
+          <CallResult business={b} today={today} fieldDate={fieldDate} onDone={close} allowVisit onVisitSaved={(r) => openAfterVisit(b, r, today)} />
         </Panelish>
       )}
       {open === "sonuc" && (
         <Panelish>
           <p className="mb-2 text-[17px] font-semibold">Nasıl bitti?</p>
-          <CallResult business={b} today={today} fieldDate={fieldDate} onDone={close} allowVisit onVisitSaved={setSaved} />
+          <CallResult business={b} today={today} fieldDate={fieldDate} onDone={close} allowVisit onVisitSaved={(r) => openAfterVisit(b, r, today)} />
         </Panelish>
       )}
-      {saved && <AfterVisit business={b} result={saved} today={today} onClose={() => setSaved(undefined)} />}
-    </li>
+          </li>
   );
 }
 
@@ -308,7 +300,7 @@ export function VisitedRow({ business: b, today, contact }: { business: Business
       </div>
       {open && (
         <Panelish>
-          <AppointmentQuickForm businessId={b.id} currentStage={b.salesStage} today={today} defaultLocation={addressOf(b)} onDone={close} />
+          <AppointmentQuickForm business={b} businessId={b.id} currentStage={b.salesStage} today={today} defaultLocation={addressOf(b)} onDone={close} />
         </Panelish>
       )}
     </li>
@@ -342,6 +334,7 @@ export function MapStopCard({
   contact,
   badge,
   onClose,
+  next,
 }: {
   business: Business;
   today: string;
@@ -349,9 +342,10 @@ export function MapStopCard({
   /** Durum ve uzaklık ("Gidilmedi · 120 m"). */
   badge?: ReactNode;
   onClose: () => void;
+  /** Buradan sonraki en yakın, gidilmemiş klinik. */
+  next?: { name: string; distance: string; go: () => void };
 }) {
   const [open, setOpen] = useState<DoorPanel>();
-  const [saved, setSaved] = useState<VisitResult>();
   const close = useCallback(() => setOpen(undefined), []);
   const toggle = (k: DoorPanel) => setOpen((v) => (v === k ? undefined : k));
   const tel = telHref(b.phone);
@@ -372,6 +366,7 @@ export function MapStopCard({
                 </p>
               )}
               {last && <p className="mt-0.5 text-sm text-muted">{last}</p>}
+              <InsightSummary notes={[contact?.lastCall?.note, contact?.lastVisit?.note]} />
             </BusinessHeader>
           </div>
           <button type="button" onClick={onClose} aria-label="Kapat" className="-mr-2 -mt-1 min-h-11 min-w-11 text-xl text-muted">
@@ -408,16 +403,30 @@ export function MapStopCard({
           <button type="button" onClick={() => toggle("sonuc")} aria-expanded={open === "sonuc"} className={`${btn} aria-expanded:bg-paper`}>
             Telefon sonucu
           </button>
+          <DemoButton className={`${btn} col-span-2 border-meet/40 text-meet`} />
         </div>
+        {next && (
+          <button
+            type="button"
+            onClick={next.go}
+            className="mt-3 flex min-h-14 w-full items-center justify-between gap-3 rounded-md border border-ink/20 bg-paper px-4 text-left"
+          >
+            <span className="min-w-0">
+              <span className="block text-xs font-semibold uppercase tracking-wide text-muted">Sıradaki en yakın</span>
+              <span className="block truncate text-[16px] font-semibold">{next.name}</span>
+            </span>
+            <span className="shrink-0 text-[15px] font-medium tabular-nums">{next.distance} →</span>
+          </button>
+        )}
       </div>
       {open === "ziyaret" && (
         <Panelish>
-          <VisitForm businessId={b.id} currentStage={b.salesStage} today={today} onDone={close} onSaved={setSaved} />
+          <VisitForm businessId={b.id} currentStage={b.salesStage} today={today} onDone={close} onSaved={(r) => openAfterVisit(b, r, today)} />
         </Panelish>
       )}
       {open === "randevu" && (
         <Panelish>
-          <AppointmentQuickForm businessId={b.id} currentStage={b.salesStage} today={today} defaultLocation={addressOf(b)} onDone={close} />
+          <AppointmentQuickForm business={b} businessId={b.id} currentStage={b.salesStage} today={today} defaultLocation={addressOf(b)} onDone={close} />
         </Panelish>
       )}
       {open === "arama" && (
@@ -432,7 +441,6 @@ export function MapStopCard({
           <CallResult business={b} today={today} onDone={close} />
         </Panelish>
       )}
-      {saved && <AfterVisit business={b} result={saved} today={today} onClose={() => setSaved(undefined)} />}
-    </div>
+          </div>
   );
 }
