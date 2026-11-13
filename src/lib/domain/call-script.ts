@@ -53,7 +53,7 @@ export function callScriptFor(business: Pick<Business, "categories">, who: Scrip
   let questions = s.questions;
   if (who === "doktor") {
     const type = CLINIC_TYPE_LINES.find((l) => business.categories.some((c) => TYPE_OF[c] === l.id)) ?? CLINIC_TYPE_LINES[0];
-    questions = [questions[0], { text: type.question, listen: "Cevabı bekle. Sorun anlatırsa: \"Peki bu ayda kaç hasta eder?\"" }, ...questions.slice(1)];
+    questions = [questions[0], { text: type.question, listen: "Cevabı bekle. Sorunu anlatırsa: \"Ayda kaç hasta böyle gidiyordur sizce?\"" }, ...questions.slice(1)];
   }
 
   return {
