@@ -23,7 +23,7 @@ export type CallRowData = {
   lastCallLabel?: string;
 };
 
-export function CallRow({ row, today, tone }: { row: CallRowData; today: string; tone?: "late" }) {
+export function CallRow({ row, today, tone, afterFile }: { row: CallRowData; today: string; tone?: "late"; afterFile?: boolean }) {
   const { business: b } = row;
   const [open, setOpen] = useState<false | "arama" | "sonuc" | "randevu">(false);
   const close = useCallback(() => setOpen(false), []);
@@ -45,6 +45,7 @@ export function CallRow({ row, today, tone }: { row: CallRowData; today: string;
             <span>{b.categories.map((c) => CATEGORY_LABELS[c]).join(", ")}</span>
             {b.district && <span>{b.district}</span>}
             {row.dueLabel && <span className={tone === "late" ? "font-medium text-late" : "font-medium text-meet"}>{row.dueLabel}</span>}
+            {afterFile && <span className="font-medium text-call">Dosya gönderildi, dönüş bekleniyor</span>}
             {row.lastCallLabel && <span>{row.lastCallLabel}</span>}
             {b.failedStreak > 0 && (
               <span className="text-late">
@@ -112,7 +113,7 @@ export function CallRow({ row, today, tone }: { row: CallRowData; today: string;
                   Kapat
                 </button>
               </div>
-              <CallScript business={b} today={today} />
+              <CallScript business={b} today={today} afterFile={afterFile} />
               <p className="mb-2 mt-5 text-[17px] font-semibold">Nasıl bitti?</p>
               <CallResult business={b} today={today} onDone={close} />
             </>

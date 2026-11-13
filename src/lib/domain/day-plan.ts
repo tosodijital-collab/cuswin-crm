@@ -1,13 +1,28 @@
 // Bugün ekranının planı: hafta şeridi, görev etiketleri, gönderilecek mesajlar ve bugün yapılanlar. Saf fonksiyonlar.
 
 import { isNewCandidate } from "./rules";
-import { FOLLOW_UPS } from "./sales-playbook";
+import { FILE_FOLLOW_UP, FOLLOW_UPS } from "./sales-playbook";
 import { addDays, toDateStr } from "./time";
 import type { Activity, Appointment, Business, CallTask, DateStr, Settings } from "./types";
 
 /** Gönderilen mesajlar bu önekle not olarak kaydedilir; listeden düşmesi buna bakar. */
 export const SENT_PREFIX = "Mesaj gönderildi: ";
-export const SENT_LABELS = { takip3: "3. gün takip", takip14: "2. hafta takip", teyit: "randevu teyidi" } as const;
+export const SENT_LABELS = {
+  takip3: "3. gün takip",
+  takip14: "2. hafta takip",
+  teyit: "randevu teyidi",
+  dosya2: "dosya takibi",
+  dosya7: "dosya son mesaj",
+} as const;
+
+/** Mesaj listesindeki kısa adlar. */
+export const MESSAGE_TITLES: Record<MessageKind, string> = {
+  takip3: "3. gün takip",
+  takip14: "2. hafta takip",
+  teyit: "Randevu teyidi",
+  dosya2: "Dosya takibi",
+  dosya7: "Dosya: son mesaj",
+};
 export type MessageKind = keyof typeof SENT_LABELS;
 
 export function sentNote(kind: MessageKind): string {
@@ -70,6 +85,35 @@ export type MessageTask = {
 
 const FOLLOW_UP_VISITS = new Set(["demo_yapildi", "doktorla_gorusuldu", "sekreterle_gorusuldu"]);
 
+/** Tanıtım WhatsApp'tan gönderilirken arama notuna bu yazılır (send-whatsapp.tsx). */
+export const FILE_SENT_MARK = "WhatsApp'tan gönderildi";
+
+/**
+ * Dosya gönderilmiş ve dönüş olmamış klinikler: son "bilgi istedi" gönderiminden sonra yalnızca
+ * "açmadı" aramaları var (görüşme, ziyaret, ilgilenmiyor yok). Değer: gönderim zamanı.
+ */
+export function awaitingFile(history: Activity[]): Map<string, string> {
+  const byBiz = new Map<string, Activity[]>();
+  for (const a of history) {
+    if (a.voidedAt || (a.type !== "arama" && a.type !== "ziyaret")) continue;
+    const list = byBiz.get(a.businessId) ?? [];
+    list.push(a);
+    byBiz.set(a.businessId, list);
+  }
+  const out = new Map<string, string>();
+  for (const [id, acts] of byBiz) {
+    const sorted = acts.sort((x, y) => y.at.localeCompare(x.at));
+    for (const a of sorted) {
+      if (a.type === "arama" && a.callResult === "tekrar_aranacak" && a.note?.includes(FILE_SENT_MARK)) {
+        out.set(id, a.at);
+        break;
+      }
+      if (!(a.type === "arama" && a.callResult === "ulasilamadi")) break;
+    }
+  }
+  return out;
+}
+
 /**
  * Bugün gönderilecek mesajlar:
  * - Görüşmeden 3 gün sonra (3–13. gün) "3. gün takip", 14–30. gün "2. hafta takip" (satış kiti).
@@ -113,6 +157,22 @@ export function messagesDue({
     if (!kind || sentAfter(businessId, kind, visit.at)) continue;
     const f = FOLLOW_UPS[kind === "takip3" ? 0 : 1];
     out.push({ kind, business: b, why: `${days} gün önce görüştün`, text: f.text });
+  }
+
+  // Dosya gönderildi, dönüş yok: 2. gün hatırlatma, 7. gün son mesaj (sonra 1 ay ertelenir).
+  for (const [businessId, sentAt] of awaitingFile(history)) {
+    const b = businesses.get(businessId);
+    if (!b || upcoming.has(businessId)) continue;
+    if (b.salesStage === "musteri_oldu" || b.salesStage === "olumsuz" || b.callStatus === "ilgilenmiyor" || b.callStatus === "iletisim_kurma") continue;
+    const days = daysBetween(toDateStr(new Date(sentAt)), today);
+    const kind: MessageKind | undefined = days >= 7 && days <= 30 ? "dosya7" : days >= 2 && days < 7 ? "dosya2" : undefined;
+    if (!kind || sentAfter(businessId, kind, sentAt)) continue;
+    out.push({
+      kind,
+      business: b,
+      why: `${days} gün önce dosya gönderdin, dönüş yok`,
+      text: kind === "dosya2" ? FILE_FOLLOW_UP.day2 : FILE_FOLLOW_UP.day7,
+    });
   }
 
   const tomorrow = addDays(today, 1);

@@ -250,6 +250,20 @@ export class MemoryRepository implements CrmRepository {
     this.s.activities.push({ id: id(), businessId, at: nowIso(), type: "not", note });
   }
 
+  async postponeCall(businessId: string, dueDate: DateStr, note: string): Promise<void> {
+    const b = this.mustBusiness(businessId);
+    const now = nowIso();
+    for (const t of this.s.tasks) {
+      if (t.businessId === businessId && t.status === "acik") {
+        t.status = "iptal";
+        t.closedAt = now;
+      }
+    }
+    this.s.tasks.push({ id: id(), businessId, kind: "takip", reason: "planlandi", dueDate, status: "acik", createdAt: now });
+    Object.assign(b, { nextActionDate: dueDate, nextActionTime: undefined });
+    this.s.activities.push({ id: id(), businessId, at: now, type: "not", note });
+  }
+
   async undoLastCall(businessId: string): Promise<void> {
     const b = this.mustBusiness(businessId);
     const undo = decideUndoLastCall(this.s.activities.filter((a) => a.businessId === businessId));

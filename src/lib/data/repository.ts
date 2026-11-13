@@ -120,6 +120,8 @@ export interface CrmRepository {
   voidActivity(businessId: string, activityId: string): Promise<void>;
   /** Yanlış girilen son arama sonucunu geri alır; klinik o aramadan önceki durumuna ve görevine döner. */
   undoLastCall(businessId: string): Promise<void>;
+  /** Açık aramayı iptal edip kliniği verilen güne erteler (arama sayılmaz; geçmişe not düşer). */
+  postponeCall(businessId: string, dueDate: DateStr, note: string): Promise<void>;
 
   createBusiness(input: BusinessInput): Promise<string>;
   /** WhatsApp numarasını kişilere ekler; kayıtlı bir numaraysa bir şey yapmaz. */

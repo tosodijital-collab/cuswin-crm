@@ -15,7 +15,20 @@ import { CallScript } from "./call-script";
 import { InsightSummary } from "./insights";
 import { Panel } from "./ui";
 
-export function CallSession({ rows, today, done, onExit }: { rows: TaskView[]; today: string; done: number; onExit: () => void }) {
+export function CallSession({
+  rows,
+  today,
+  done,
+  fileIds,
+  onExit,
+}: {
+  rows: TaskView[];
+  today: string;
+  done: number;
+  /** Dosya gönderilip dönüş olmayan klinikler: konuşma "dosyayı göndermiştim" ile açılır. */
+  fileIds?: Set<string>;
+  onExit: () => void;
+}) {
   const [skipped, setSkipped] = useState<string[]>([]);
   const [scriptFor, setScriptFor] = useState<string>();
   const queue = [...rows.filter((r) => !skipped.includes(r.task.id)), ...rows.filter((r) => skipped.includes(r.task.id))];
@@ -53,6 +66,7 @@ export function CallSession({ rows, today, done, onExit }: { rows: TaskView[]; t
             row={current}
             today={today}
             scriptOpen={scriptFor === current.task.id}
+            afterFile={fileIds?.has(current.business.id)}
             onScript={(open) => setScriptFor(open ? current.task.id : undefined)}
           />
           <div className="border-t border-line px-4 py-3">
@@ -70,7 +84,19 @@ export function CallSession({ rows, today, done, onExit }: { rows: TaskView[]; t
   );
 }
 
-function Current({ row, today, scriptOpen, onScript }: { row: TaskView; today: string; scriptOpen: boolean; onScript: (open: boolean) => void }) {
+function Current({
+  row,
+  today,
+  scriptOpen,
+  onScript,
+  afterFile,
+}: {
+  row: TaskView;
+  today: string;
+  scriptOpen: boolean;
+  onScript: (open: boolean) => void;
+  afterFile?: boolean;
+}) {
   const b = row.business;
   const tel = telHref(b.phone);
   const label = taskLabel(row.task, today);
@@ -79,7 +105,10 @@ function Current({ row, today, scriptOpen, onScript }: { row: TaskView; today: s
     : undefined;
   return (
     <div className="px-4 py-4">
-      <p className={`text-sm font-semibold ${label.late ? "text-late" : "text-meet"}`}>{label.text}</p>
+      <p className={`text-sm font-semibold ${label.late ? "text-late" : "text-meet"}`}>
+        {label.text}
+        {afterFile && <span className="text-call"> · Dosya gönderildi, dönüş bekleniyor</span>}
+      </p>
       <Link href={`/isletme?id=${b.id}`} className="mt-0.5 block text-xl font-semibold leading-snug hover:underline">
         {b.name}
       </Link>
@@ -104,7 +133,7 @@ function Current({ row, today, scriptOpen, onScript }: { row: TaskView; today: s
       </button>
       {scriptOpen && (
         <div className="mt-1">
-          <CallScript business={b} today={today} />
+          <CallScript business={b} today={today} afterFile={afterFile} />
         </div>
       )}
 

@@ -382,3 +382,17 @@ export function parseInsights(note: string | undefined): { labels: string[]; hot
 export function withInsights(note: string | undefined, insights: string | undefined): string | undefined {
   return [insights, note].filter(Boolean).join("\n") || undefined;
 }
+
+// ---------- Dosya gönderildi, dönüş yok ----------
+
+/** "Bilgi istedi" ile tanıtım gönderilen ve sonra ulaşılamayan klinik için mesajlar ve arama açılışı. */
+export const FILE_FOLLOW_UP = {
+  day2:
+    "Merhaba, geçen gün tanıtım dosyamızı göndermiştim. Bakma fırsatınız oldu mu? Uygun olursanız 10 dakikalığına uğrayıp kendi telefonunuzdan canlı göstereyim.\n\nÖzkan, Cuswin",
+  day7:
+    "Merhaba, son bir not bırakayım: hastalarınızın mesajlarına siz yetişemediğinizde cevap veren sistemimizi istediğiniz zaman 10 dakikada gösterebilirim. Denemek isterseniz demo hattımız 0850 510 09 46. İyi çalışmalar.\n\nÖzkan, Cuswin",
+  opening: "Merhaba, ben Özkan, Cuswin'den. Geçen gün tanıtım dosyamızı göndermiştim; bakabildiniz mi?",
+  note: "Baktıysa: \"En çok hangi kısım ilginizi çekti?\" Bakmadıysa: \"Kısaca anlatayım\" deyip sorulara geç. Her durumda tarih iste.",
+  /** Son mesajdan sonra klinik bu kadar gün sonraya ertelenir. */
+  postponeDays: 30,
+} as const;

@@ -116,3 +116,36 @@ describe("haftayı planla", () => {
     expect(planningDays("2026-11-16").at(-1)).toBe("2026-11-21");
   });
 });
+
+describe("dosya gönderildi, dönüş yok", () => {
+  const today = "2026-11-13";
+  const sent = (id: string, at: string) => act(id, at, { callResult: "tekrar_aranacak", note: "Tanıtım dosyası WhatsApp'tan gönderildi (0532 000 00 00)." });
+
+  it("gönderimden sonra yalnızca 'açmadı' varsa dönüş bekleniyor sayılır", async () => {
+    const { awaitingFile } = await import("@/lib/domain/day-plan");
+    const w = awaitingFile([
+      sent("a", "2026-11-11T09:00:00Z"),
+      act("a", "2026-11-12T09:00:00Z", { callResult: "ulasilamadi" }),
+      sent("b", "2026-11-11T09:00:00Z"),
+      act("b", "2026-11-12T09:00:00Z", { callResult: "gorusuldu" }),
+      act("c", "2026-11-11T09:00:00Z", { callResult: "tekrar_aranacak", note: "Doktor yoktu" }),
+    ]);
+    expect([...w.keys()]).toEqual(["a"]);
+  });
+
+  it("2. gün hatırlatma, 7. gün son mesaj; gönderildiyse çıkmaz", async () => {
+    const { messagesDue, sentNote } = await import("@/lib/domain/day-plan");
+    const businesses = new Map(["d2", "d7", "gitti"].map((id) => [id, biz(id, { callStatus: "tekrar_aranacak", salesStage: "iletisim_kuruldu" })]));
+    const history = [sent("d2", "2026-11-11T09:00:00Z"), sent("d7", "2026-11-06T09:00:00Z"), sent("gitti", "2026-11-11T09:00:00Z")];
+    const sentNotes = [act("gitti", "2026-11-13T07:00:00Z", { type: "not", note: sentNote("dosya2") })];
+    const due = messagesDue({ businesses, history, sentNotes, appointments: [], today });
+    expect(due.map((m) => `${m.kind}:${m.business.id}`).sort()).toEqual(["dosya2:d2", "dosya7:d7"]);
+    expect(due.find((m) => m.kind === "dosya7")?.text).toContain("0850 510 09 46");
+  });
+
+  it("arama açılışı dosyaya göre değişir", async () => {
+    const { callScriptFor } = await import("@/lib/domain/call-script");
+    expect(callScriptFor({ categories: ["estetik"] }, "sekreter", today, undefined, { afterFile: true }).opening).toContain("tanıtım dosyamızı göndermiştim");
+    expect(callScriptFor({ categories: ["estetik"] }, "sekreter", today).opening).not.toContain("göndermiştim");
+  });
+});

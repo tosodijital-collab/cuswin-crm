@@ -7,7 +7,7 @@ import { getRepository } from "@/lib/data";
 import { REFERRAL_NOTE_PREFIX } from "@/lib/domain/report";
 import { planningDays } from "@/lib/domain/day-plan";
 import { RuleError } from "@/lib/domain/rules";
-import { withInsights } from "@/lib/domain/sales-playbook";
+import { FILE_FOLLOW_UP, withInsights } from "@/lib/domain/sales-playbook";
 import { addDays, istanbulToUtc, toDateStr } from "@/lib/domain/time";
 import {
   CALL_STATUSES,
@@ -174,6 +174,15 @@ export async function addNoteAction(_: ActionState, formData: FormData): Promise
       .parse(fields(formData));
     await getRepository().addNote(businessId, note);
     return "Not eklendi.";
+  });
+}
+
+/** Dosyaya dönüş yok, son mesaj gitti: klinik 1 ay sonra tekrar aranacaklara düşer. */
+export async function postponeAfterFileAction(businessId: string): Promise<ActionState> {
+  return run(async () => {
+    const due = addDays(toDateStr(new Date()), FILE_FOLLOW_UP.postponeDays);
+    await getRepository().postponeCall(id.parse(businessId), due, `Dosyaya dönüş olmadı, son mesaj gönderildi. ${FILE_FOLLOW_UP.postponeDays} gün sonra tekrar aranacak.`);
+    return `Son mesaj gönderildi. Klinik ${FILE_FOLLOW_UP.postponeDays} gün sonra tekrar listende.`;
   });
 }
 

@@ -429,6 +429,14 @@ export class SupabaseRepository implements CrmRepository {
     await this.q(this.db.from("activities").insert({ business_id: businessId, type: "not", note }));
   }
 
+  async postponeCall(businessId: string, dueDate: DateStr, note: string): Promise<void> {
+    const now = new Date().toISOString();
+    await this.q(this.db.from("call_tasks").update({ status: "iptal", closed_at: now }).eq("business_id", businessId).eq("status", "acik"));
+    await this.q(this.db.from("call_tasks").insert({ business_id: businessId, kind: "takip", reason: "planlandi", due_date: dueDate }));
+    await this.q(this.db.from("businesses").update({ next_action_date: dueDate, next_action_time: null }).eq("id", businessId));
+    await this.q(this.db.from("activities").insert({ business_id: businessId, type: "not", note }));
+  }
+
   async undoLastCall(businessId: string): Promise<void> {
     const rows = await this.q(this.db.from("activities").select("*").eq("business_id", businessId));
     const undo = decideUndoLastCall((rows as Row[]).map(toActivity));

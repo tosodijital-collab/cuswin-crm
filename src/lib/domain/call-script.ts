@@ -1,7 +1,7 @@
 // Arama sırasında kartta gösterilen konuşma. Metinler sales-playbook.ts'teki senaryodan gelir;
 // burada yalnızca kime (sekreter/doktor), hangi klinik türüne ve hangi güne göre seçilir.
 
-import { CLINIC_TYPE_LINES, PHONE_OBJECTIONS, PHONE_SCENARIOS, withDay, type Question } from "./sales-playbook";
+import { CLINIC_TYPE_LINES, FILE_FOLLOW_UP, PHONE_OBJECTIONS, PHONE_SCENARIOS, withDay, type Question } from "./sales-playbook";
 import { addDays } from "./time";
 import type { Business, Category } from "./types";
 
@@ -39,7 +39,13 @@ export function pitchDate(today: string, fieldDate?: string): string {
   return d;
 }
 
-export function callScriptFor(business: Pick<Business, "categories">, who: ScriptWho, today: string, fieldDate?: string): CallScriptView {
+export function callScriptFor(
+  business: Pick<Business, "categories">,
+  who: ScriptWho,
+  today: string,
+  fieldDate?: string,
+  { afterFile = false }: { afterFile?: boolean } = {},
+): CallScriptView {
   const day = weekdayName(pitchDate(today, fieldDate));
   const say = (t: string) => withDay(t, day);
   const s = PHONE_SCENARIOS.find((x) => x.id === who)!;
@@ -57,8 +63,8 @@ export function callScriptFor(business: Pick<Business, "categories">, who: Scrip
   }
 
   return {
-    opening: s.opening,
-    note: s.note,
+    opening: afterFile ? FILE_FOLLOW_UP.opening : s.opening,
+    note: afterFile ? FILE_FOLLOW_UP.note : s.note,
     questions,
     bridge: s.bridge,
     close: say(s.close),

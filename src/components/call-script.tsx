@@ -7,9 +7,20 @@ import { useState } from "react";
 import { callScriptFor, type ScriptWho } from "@/lib/domain/call-script";
 import type { Business } from "@/lib/domain/types";
 
-export function CallScript({ business, today, fieldDate }: { business: Business; today: string; fieldDate?: string }) {
+export function CallScript({
+  business,
+  today,
+  fieldDate,
+  afterFile,
+}: {
+  business: Business;
+  today: string;
+  fieldDate?: string;
+  /** Tanıtım gönderilmiş, dönüş yok: açılış "dosyayı göndermiştim" olur. */
+  afterFile?: boolean;
+}) {
   const [who, setWho] = useState<ScriptWho>("sekreter");
-  const s = callScriptFor(business, who, today, fieldDate);
+  const s = callScriptFor(business, who, today, fieldDate, { afterFile });
 
   return (
     <div className="grid gap-3">

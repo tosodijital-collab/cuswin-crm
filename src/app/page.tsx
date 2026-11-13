@@ -11,12 +11,14 @@ import { WhatsappTo } from "@/components/send-whatsapp";
 import { closeSheet, openSheet } from "@/components/sheet";
 import { showToast } from "@/components/toast";
 import { EmptyState, LoadState, Panel } from "@/components/ui";
-import { planWeekAction } from "@/lib/actions";
+import { planWeekAction, postponeAfterFileAction } from "@/lib/actions";
 import { useData } from "@/lib/client/refresh";
 import { markSent } from "@/lib/client/sent";
 import { getRepository, type AppointmentView, type TaskView } from "@/lib/data";
 import {
+  awaitingFile,
   candidatePoolSize,
+  MESSAGE_TITLES,
   doneToday,
   messagesDue,
   orderToday,
@@ -78,9 +80,10 @@ export default function HomePage() {
     // Planı eksik iş günleri: o güne hiç yeni klinik atanmamış.
     const newOn = (d: string) => tasksOn(d).filter((v) => v.task.kind === "yeni").length;
     const unplanned = planningDays(today).filter((d) => newOn(d) < settings.dailyTarget).length;
+    const fileIds = new Set(awaitingFile(history).keys());
     const week = buildActivityReport(weekActivities, weekStart(today), today);
     const goal = goalProgress(businesses, today);
-    return { home, settings, today, apptsOn, tasksOn, todayTasks, done, messages, pool, unplanned, week, goal, callsToday: home.counts.callsToday };
+    return { home, settings, today, apptsOn, tasksOn, todayTasks, done, messages, pool, unplanned, week, goal, fileIds, callsToday: home.counts.callsToday };
   }, [data]);
 
   if (!plan) return <LoadState error={error} />;
@@ -88,7 +91,7 @@ export default function HomePage() {
   const day = selected ?? today;
 
   if (session) {
-    return <CallSession rows={todayTasks} today={today} done={plan.callsToday} onExit={() => setSession(false)} />;
+    return <CallSession rows={todayTasks} today={today} done={plan.callsToday} fileIds={plan.fileIds} onExit={() => setSession(false)} />;
   }
 
   return (
@@ -123,10 +126,18 @@ export default function HomePage() {
           callsToday={plan.callsToday}
           done={done}
           messages={messages}
+          fileIds={plan.fileIds}
           onStart={() => setSession(true)}
         />
       ) : (
-        <FuturePlan day={day} today={today} tasks={plan.tasksOn(day)} appointments={plan.apptsOn(day)} settings={settings} />
+        <FuturePlan
+          day={day}
+          today={today}
+          tasks={plan.tasksOn(day)}
+          appointments={plan.apptsOn(day)}
+          settings={settings}
+          fileIds={plan.fileIds}
+        />
       )}
     </div>
   );
@@ -183,6 +194,7 @@ function TodayPlan({
   callsToday,
   done,
   messages,
+  fileIds,
   onStart,
 }: {
   today: string;
@@ -191,6 +203,7 @@ function TodayPlan({
   callsToday: number;
   done: ReturnType<typeof doneToday>;
   messages: MessageTask[];
+  fileIds: Set<string>;
   onStart: () => void;
 }) {
   const total = callsToday + tasks.length;
@@ -248,7 +261,13 @@ function TodayPlan({
         {tasks.length ? (
           <ul>
             {tasks.map((v) => (
-              <CallRow key={v.task.id} row={toRow(v, today)} today={today} tone={taskLabel(v.task, today).late ? "late" : undefined} />
+              <CallRow
+                key={v.task.id}
+                row={toRow(v, today)}
+                today={today}
+                afterFile={fileIds.has(v.business.id)}
+                tone={taskLabel(v.task, today).late ? "late" : undefined}
+              />
             ))}
           </ul>
         ) : (
@@ -307,12 +326,14 @@ function FuturePlan({
   tasks,
   appointments,
   settings,
+  fileIds,
 }: {
   day: string;
   today: string;
   tasks: TaskView[];
   appointments: AppointmentView[];
   settings: Settings;
+  fileIds: Set<string>;
 }) {
   const paused = isPausedOn(settings.pause, day);
   return (
@@ -340,7 +361,7 @@ function FuturePlan({
         {tasks.length ? (
           <ul>
             {tasks.map((v) => (
-              <CallRow key={v.task.id} row={toRow(v, today)} today={today} />
+              <CallRow key={v.task.id} row={toRow(v, today)} today={today} afterFile={fileIds.has(v.business.id)} />
             ))}
           </ul>
         ) : (
@@ -364,14 +385,14 @@ function toRow(v: TaskView, today: string): CallRowData {
 function MessageRow({ m }: { m: MessageTask }) {
   const open = () => {
     if (m.kind === "teyit" && m.appointment) return openConfirmSheet(m.business, m.appointment.startsAt);
-    openSheet(m.kind === "takip3" ? "3. gün takip mesajı" : "2. hafta takip mesajı", <FollowUpBody m={m} />);
+    openSheet(`${MESSAGE_TITLES[m.kind]}: ${m.business.name}`, <FollowUpBody m={m} />);
   };
   return (
     <li className="flex items-center justify-between gap-3 border-b border-line px-4 py-3 last:border-b-0">
       <div className="min-w-0">
         <p className="truncate text-[16px] font-medium">{m.business.name}</p>
         <p className="text-sm text-muted">
-          {m.kind === "teyit" ? "Randevu teyidi" : m.kind === "takip3" ? "3. gün takip" : "2. hafta takip"} · {m.why}
+          {MESSAGE_TITLES[m.kind]} · {m.why}
         </p>
       </div>
       <button type="button" onClick={open} className="min-h-11 shrink-0 rounded-md border border-call/40 px-4 text-[15px] font-semibold text-call">
@@ -383,15 +404,21 @@ function MessageRow({ m }: { m: MessageTask }) {
 
 function FollowUpBody({ m }: { m: MessageTask }) {
   return (
-    <WhatsappTo
-      business={m.business}
-      message={m.text ?? ""}
-      label="WhatsApp'tan gönder"
-      onSent={() => {
-        markSent(m.business.id, m.kind);
-        closeSheet();
-      }}
-    />
+    <div className="grid gap-3">
+      {m.kind === "dosya7" && (
+        <p className="text-[15px] text-muted">Son mesaj. Gönderince klinik 1 ay sonra tekrar aranacaklara düşer; bu arada seni oyalamaz.</p>
+      )}
+      <WhatsappTo
+        business={m.business}
+        message={m.text ?? ""}
+        label="WhatsApp'tan gönder"
+        onSent={() => {
+          markSent(m.business.id, m.kind);
+          if (m.kind === "dosya7") void postponeAfterFileAction(m.business.id).then((r) => r.message && showToast(r.message));
+          closeSheet();
+        }}
+      />
+    </div>
   );
 }
 

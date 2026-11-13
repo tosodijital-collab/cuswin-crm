@@ -98,3 +98,18 @@ describe("yanlış sonucu geri alma (demo deposu)", () => {
     expect(detail?.business.callStatus).toBe(target.business.callStatus);
   });
 });
+
+describe("erteleme (demo deposu)", () => {
+  it("açık aramayı iptal edip verilen güne tek görev açar", async () => {
+    const { MemoryRepository } = await import("@/lib/data/memory-store");
+    const { addDays, toDateStr } = await import("@/lib/domain/time");
+    const repo = new MemoryRepository();
+    const target = (await repo.getHome()).newTasks[0];
+    const due = addDays(toDateStr(new Date()), 30);
+    await repo.postponeCall(target.business.id, due, "Dosyaya dönüş olmadı.");
+    expect((await repo.getHome()).newTasks.some((t) => t.business.id === target.business.id)).toBe(false);
+    const detail = await repo.getBusiness(target.business.id);
+    expect(detail?.openTask?.dueDate).toBe(due);
+    expect(detail?.business.nextActionDate).toBe(due);
+  });
+});
