@@ -29,6 +29,7 @@ export function ClinicMap({
   const markers = useRef<Leaflet.LayerGroup>(null);
   const meLayer = useRef<Leaflet.LayerGroup>(null);
   const fitted = useRef(false);
+  const resize = useRef<ResizeObserver>(null);
   const onSelectRef = useRef(onSelect);
   useEffect(() => {
     onSelectRef.current = onSelect;
@@ -52,11 +53,18 @@ export function ClinicMap({
       markers.current = lib.layerGroup().addTo(m);
       meLayer.current = lib.layerGroup().addTo(m);
       map.current = m;
+      // iPhone: harita üzerinde iki parmak hareketi yalnızca haritayı büyütsün, sayfayı değil.
+      const stop = (e: Event) => e.preventDefault();
+      for (const ev of ["gesturestart", "gesturechange", "gestureend"]) box.current.addEventListener(ev, stop, { passive: false });
+      // Ekran döndürülünce ya da kutu boyutu değişince harita kendini yeniden ölçsün (gri alan kalmasın).
+      resize.current = new ResizeObserver(() => m.invalidateSize());
+      resize.current.observe(box.current);
       // İlk çizim için noktaları tetikle.
       box.current.dispatchEvent(new Event("map-ready"));
     });
     return () => {
       cancelled = true;
+      resize.current?.disconnect();
       map.current?.remove();
       map.current = null;
     };
@@ -96,10 +104,13 @@ export function ClinicMap({
     return () => el?.removeEventListener("map-ready", draw);
   }, [points, selectedId]);
 
-  // Seçilen klinik ortalanır.
+  // Seçilen klinik yalnızca ekranda görünmüyorsa (listeden ya da "sıradaki"den seçildiyse) haritaya getirilir;
+  // haritada dokunulan nokta zaten görünür, harita kaymaz.
   useEffect(() => {
     const p = points.find((x) => x.business.id === selectedId);
-    if (p && map.current) map.current.panTo([p.lat, p.lng]);
+    const m = map.current;
+    if (!p || !m) return;
+    if (!m.getBounds().pad(-0.1).contains([p.lat, p.lng])) m.panTo([p.lat, p.lng]);
   }, [selectedId, points]);
 
   // Benim konumum.
@@ -116,5 +127,5 @@ export function ClinicMap({
     if (follow) m.setView([me.lat, me.lng], Math.max(m.getZoom(), 16));
   }, [me, follow]);
 
-  return <div ref={box} className="isolate h-full w-full" role="application" aria-label="Klinik haritası" />;
+  return <div ref={box} className="isolate h-full w-full touch-none overscroll-contain" role="application" aria-label="Klinik haritası" />;
 }

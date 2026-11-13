@@ -111,6 +111,8 @@ export interface CrmRepository {
    * (en eski bulunan önce) hedef kadar yeni klinik atar. O sabah otomatik liste dolu günü tekrar doldurmaz.
    */
   planDays(days: DateStr[]): Promise<{ date: DateStr; added: number }[]>;
+  /** Açık görevleri start gününden itibaren yeniden dağıtır (day-plan.ts repackFrom). */
+  startPlanFrom(start: DateStr): Promise<{ moved: number; lastDay?: DateStr }>;
   /** Notu bu önekle başlayan geçerli notlar (ör. "Mesaj gönderildi:"), yeniden eskiye. */
   listNotesWithPrefix(prefix: string): Promise<Activity[]>;
   /** Bu andan sonraki tüm geçerli geçmiş kayıtları (gün sonu raporu için). */

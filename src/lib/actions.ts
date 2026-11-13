@@ -8,7 +8,7 @@ import { REFERRAL_NOTE_PREFIX } from "@/lib/domain/report";
 import { planningDays } from "@/lib/domain/day-plan";
 import { RuleError } from "@/lib/domain/rules";
 import { FILE_FOLLOW_UP, withInsights } from "@/lib/domain/sales-playbook";
-import { addDays, istanbulToUtc, toDateStr } from "@/lib/domain/time";
+import { addDays, formatShortDate, istanbulToUtc, toDateStr } from "@/lib/domain/time";
 import {
   CALL_STATUSES,
   CATEGORIES,
@@ -328,6 +328,15 @@ export async function planWeekAction(): Promise<ActionState> {
     const short = res.filter((r) => r.added === 0).length;
     if (added === 0) return "Plan zaten dolu ya da aranmamış klinik kalmadı. Yeni klinik için tarama gerekli.";
     return `${added} klinik ${res.filter((r) => r.added > 0).length} güne planlandı.` + (short ? " Bazı günler için aranmamış klinik yetmedi; tarama gerekli." : "");
+  });
+}
+
+/** "Bugün arayamayacağım": aramalar yarından (pazar atlanır) itibaren günde hedef kadar yeniden dağıtılır. */
+export async function startPlanTomorrowAction(): Promise<ActionState> {
+  return run(async () => {
+    const { moved, lastDay } = await getRepository().startPlanFrom(addDays(toDateStr(new Date()), 1));
+    if (!moved) return "Kaydırılacak arama yok.";
+    return `${moved} arama yarından itibaren dağıtıldı${lastDay ? `; liste ${formatShortDate(lastDay)} tarihine kadar dolu` : ""}.`;
   });
 }
 

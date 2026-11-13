@@ -210,3 +210,56 @@ export function candidatePoolSize(
   const ctx = { settings, businessIdsWithOpenTask: openTaskIds, businessIdsWithCallHistory: calledIds };
   return businesses.filter((b) => !b.nextActionDate && isNewCandidate(b, ctx)).length;
 }
+
+const isSunday = (d: DateStr) => new Date(`${d}T12:00:00Z`).getUTCDay() === 0;
+
+/** start dahil, pazar değilse kendisi, pazarsa ertesi gün. */
+export function workingDayFrom(d: DateStr): DateStr {
+  return isSunday(d) ? addDays(d, 1) : d;
+}
+
+export type Repack = {
+  moves: { id: string; dueDate: DateStr }[];
+  /** Her güne düşen yeni klinik sayısı (günlük liste kaydı için). */
+  perDay: Map<DateStr, number>;
+  /** Tarihi start'a çekilen takiplerin işletmeleri. */
+  followUpBusinessIds: string[];
+};
+
+/**
+ * "Planı yarından başlat": açık görevleri start gününden itibaren yeniden dağıtır.
+ * - Yeni klinikler (günlük liste) en eski önce, her iş gününe `target` kadar (pazar atlanır).
+ * - Günü geçmiş ya da start'tan önceki takipler start'a gelir; ileri tarihli takipler (müşterinin verdiği gün) yerinde kalır.
+ */
+export function repackFrom(
+  tasks: Pick<CallTask, "id" | "kind" | "dueDate" | "createdAt" | "businessId">[],
+  start: DateStr,
+  target: number,
+): Repack {
+  const moves: Repack["moves"] = [];
+  const perDay = new Map<DateStr, number>();
+  const followUpBusinessIds: string[] = [];
+  const first = workingDayFrom(start);
+
+  for (const t of tasks) {
+    if (t.kind === "takip" && t.dueDate < first) {
+      moves.push({ id: t.id, dueDate: first });
+      followUpBusinessIds.push(t.businessId);
+    }
+  }
+  const fresh = tasks
+    .filter((t) => t.kind === "yeni")
+    .sort((a, b) => a.dueDate.localeCompare(b.dueDate) || a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id));
+  let day = first;
+  let n = 0;
+  for (const t of fresh) {
+    if (n >= target) {
+      day = workingDayFrom(addDays(day, 1));
+      n = 0;
+    }
+    if (t.dueDate !== day) moves.push({ id: t.id, dueDate: day });
+    perDay.set(day, (perDay.get(day) ?? 0) + 1);
+    n++;
+  }
+  return { moves, perDay, followUpBusinessIds };
+}

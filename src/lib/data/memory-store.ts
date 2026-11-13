@@ -2,6 +2,7 @@
 // Testlerde boş başlatılarak kuralları doğrulamak için de kullanılır.
 
 import { normalizePhone, normalizeWebsite, withWhatsapp } from "@/lib/domain/contact-info";
+import { repackFrom, workingDayFrom } from "@/lib/domain/day-plan";
 import { decideImport } from "@/lib/domain/places";
 import {
   dataIssues,
@@ -216,6 +217,23 @@ export class MemoryRepository implements CrmRepository {
     if (b.salesStage === stage && !note) return;
     b.salesStage = stage;
     this.s.activities.push({ id: id(), businessId, at: nowIso(), type: "asama", stage, note });
+  }
+
+  async startPlanFrom(start: DateStr): Promise<{ moved: number; lastDay?: DateStr }> {
+    const open = this.s.tasks.filter((t) => t.status === "acik");
+    const { moves, perDay, followUpBusinessIds } = repackFrom(open, start, this.s.settings.dailyTarget);
+    for (const m of moves) {
+      const t = this.s.tasks.find((x) => x.id === m.id);
+      if (t) t.dueDate = m.dueDate;
+    }
+    for (const id of followUpBusinessIds) this.mustBusiness(id).nextActionDate = workingDayFrom(start);
+    const at = nowIso();
+    for (const [date, selected] of perDay) {
+      const run = this.s.runs.find((r) => r.date === date);
+      if (run) Object.assign(run, { selected, target: this.s.settings.dailyTarget, finishedAt: at, shortfallReason: undefined });
+      else this.s.runs.push({ date, startedAt: at, finishedAt: at, target: this.s.settings.dailyTarget, selected, trigger: "manuel" });
+    }
+    return { moved: moves.length, lastDay: [...perDay.keys()].sort().at(-1) };
   }
 
   async planDays(days: DateStr[]): Promise<{ date: DateStr; added: number }[]> {

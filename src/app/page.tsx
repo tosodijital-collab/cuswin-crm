@@ -11,7 +11,7 @@ import { WhatsappTo } from "@/components/send-whatsapp";
 import { closeSheet, openSheet } from "@/components/sheet";
 import { showToast } from "@/components/toast";
 import { EmptyState, LoadState, Panel } from "@/components/ui";
-import { planWeekAction, postponeAfterFileAction } from "@/lib/actions";
+import { planWeekAction, postponeAfterFileAction, startPlanTomorrowAction } from "@/lib/actions";
 import { useData } from "@/lib/client/refresh";
 import { markSent } from "@/lib/client/sent";
 import { getRepository, type AppointmentView, type TaskView } from "@/lib/data";
@@ -245,6 +245,7 @@ function TodayPlan({
             Aramaya başla ({tasks.length})
           </button>
         )}
+        {tasks.length > 0 && <StartTomorrow />}
       </Panel>
 
       {appointments.length > 0 && (
@@ -418,6 +419,45 @@ function FollowUpBody({ m }: { m: MessageTask }) {
           closeSheet();
         }}
       />
+    </div>
+  );
+}
+
+/** "Bugün arayamayacağım": aramalar yarından itibaren günde hedef kadar dağıtılır. Yanlışlıkla basılmasın diye iki adımlı. */
+function StartTomorrow() {
+  const [sure, setSure] = useState(false);
+  const [pending, start] = useTransition();
+  if (!sure) {
+    return (
+      <button type="button" onClick={() => setSure(true)} className="mt-2 min-h-11 w-full text-[15px] font-medium text-muted">
+        Bugün arayamayacağım, planı yarından başlat
+      </button>
+    );
+  }
+  return (
+    <div className="mt-3 rounded-md bg-paper px-3 py-3 text-[15px]">
+      <p>
+        Bugünün aramaları yarından itibaren günde 20 olacak şekilde ileri kaydırılır. Müşterinin verdiği tarihli takipler yerinde kalır.
+      </p>
+      <div className="mt-2 grid grid-cols-2 gap-2">
+        <button type="button" onClick={() => setSure(false)} className="min-h-11 rounded-md border border-line bg-surface text-[15px]">
+          Vazgeç
+        </button>
+        <button
+          type="button"
+          disabled={pending}
+          onClick={() =>
+            start(async () => {
+              const r = await startPlanTomorrowAction();
+              if (r.message) showToast(r.message);
+              setSure(false);
+            })
+          }
+          className="min-h-11 rounded-md bg-ink text-[15px] font-semibold text-white disabled:opacity-50"
+        >
+          {pending ? "Kaydırılıyor" : "Evet, kaydır"}
+        </button>
+      </div>
     </div>
   );
 }

@@ -149,3 +149,32 @@ describe("dosya gönderildi, dönüş yok", () => {
     expect(callScriptFor({ categories: ["estetik"] }, "sekreter", today).opening).not.toContain("göndermiştim");
   });
 });
+
+describe("planı yarından başlat", () => {
+  it("yeni klinikleri günde hedef kadar dağıtır, pazarı atlar; geçmiş takipleri ilk güne alır, ileri tarihli takibe dokunmaz", async () => {
+    const { repackFrom } = await import("@/lib/domain/day-plan");
+    const t = (id: string, kind: "yeni" | "takip", dueDate: string) => ({ id, kind, dueDate, createdAt: `${dueDate}T05:00:00Z`, businessId: `b${id}` });
+    const tasks = [
+      t("1", "yeni", "2026-11-13"),
+      t("2", "yeni", "2026-11-13"),
+      t("3", "yeni", "2026-11-13"),
+      t("4", "yeni", "2026-11-14"),
+      t("5", "takip", "2026-11-12"),
+      t("6", "takip", "2026-11-18"),
+    ];
+    // 14 Kasım cumartesi; hedef 2 → ct: 1,2 · (pazar atlanır) pt: 3,4
+    const r = repackFrom(tasks, "2026-11-14", 2);
+    expect(Object.fromEntries(r.moves.map((m) => [m.id, m.dueDate]))).toEqual({
+      "5": "2026-11-14",
+      "1": "2026-11-14",
+      "2": "2026-11-14",
+      "3": "2026-11-16",
+      "4": "2026-11-16",
+    });
+    expect([...r.perDay]).toEqual([
+      ["2026-11-14", 2],
+      ["2026-11-16", 2],
+    ]);
+    expect(r.followUpBusinessIds).toEqual(["b5"]);
+  });
+});

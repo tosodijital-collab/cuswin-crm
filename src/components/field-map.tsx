@@ -122,7 +122,7 @@ export function FieldMap() {
 
   return (
     <div className="-mx-4">
-      <div className="relative h-[58dvh] min-h-80 border-b border-line">
+      <div className="relative h-[55svh] min-h-80 border-b border-line">
         <ClinicMap points={view.points} selectedId={selectedId} onSelect={select} me={me} follow={follow} />
         <div className="pointer-events-none absolute inset-x-0 top-0 z-[1000] flex items-start justify-between gap-2 p-3">
           <div role="tablist" aria-label="Klinik türü" className="pointer-events-auto flex rounded-full border border-line bg-surface p-1 shadow-sm">

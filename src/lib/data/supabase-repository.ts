@@ -3,6 +3,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { normalizePhone, normalizeWebsite, withWhatsapp } from "@/lib/domain/contact-info";
+import { repackFrom, workingDayFrom } from "@/lib/domain/day-plan";
 import { decideImport } from "@/lib/domain/places";
 import {
   dataIssues,
@@ -367,6 +368,36 @@ export class SupabaseRepository implements CrmRepository {
   async setSalesStage(businessId: string, stage: SalesStage, note?: string): Promise<void> {
     await this.q(this.db.from("businesses").update({ sales_stage: stage }).eq("id", businessId));
     await this.q(this.db.from("activities").insert({ business_id: businessId, type: "asama", stage, note: note ?? null }));
+  }
+
+  async startPlanFrom(start: DateStr): Promise<{ moved: number; lastDay?: DateStr }> {
+    const settings = await this.getSettings();
+    const open = (
+      await this.all((f, t) => this.db.from("call_tasks").select("*").eq("status", "acik").order("id").range(f, t))
+    ).map(toTask);
+    const { moves, perDay, followUpBusinessIds } = repackFrom(open, start, settings.dailyTarget);
+    const byDay = new Map<DateStr, string[]>();
+    for (const m of moves) byDay.set(m.dueDate, [...(byDay.get(m.dueDate) ?? []), m.id]);
+    for (const [day, ids] of byDay) {
+      for (let i = 0; i < ids.length; i += 200) {
+        await this.q(this.db.from("call_tasks").update({ due_date: day }).in("id", ids.slice(i, i + 200)));
+      }
+    }
+    if (followUpBusinessIds.length) {
+      await this.q(this.db.from("businesses").update({ next_action_date: workingDayFrom(start) }).in("id", followUpBusinessIds));
+    }
+    // Günlük liste kaydı: o sabah otomatik liste dolu günü tekrar doldurmasın.
+    const now = new Date().toISOString();
+    const runs = [...perDay].map(([date, selected]) => ({
+      date,
+      target: settings.dailyTarget,
+      selected,
+      trigger: "manuel",
+      finished_at: now,
+      shortfall_reason: null,
+    }));
+    if (runs.length) await this.q(this.db.from("daily_runs").upsert(runs, { onConflict: "date" }));
+    return { moved: moves.length, lastDay: [...perDay.keys()].sort().at(-1) };
   }
 
   async planDays(days: DateStr[]): Promise<{ date: DateStr; added: number }[]> {
