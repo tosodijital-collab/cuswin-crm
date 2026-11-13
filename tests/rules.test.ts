@@ -207,3 +207,33 @@ describe("iletişim bilgisi normalizasyonu", () => {
     expect(normalizeWebsite("ornek.com.tr")).toBe("ornek.com.tr");
   });
 });
+
+describe("yanlış sonucu geri alma", () => {
+  const act = (id: string, at: string, extra: Partial<Activity>): Activity => ({ id, businessId: "b", at, type: "arama", ...extra });
+
+  it("son aramayı ve aynı anda yazılan aşamayı geri alır, önceki duruma döner", async () => {
+    const { decideUndoLastCall } = await import("@/lib/domain/rules");
+    const u = decideUndoLastCall([
+      act("1", "2026-11-12T09:00:00Z", { callResult: "ulasilamadi" }),
+      act("2", "2026-11-13T09:00:00Z", { callResult: "ilgilenmiyor" }),
+    ]);
+    expect(u.voidIds).toEqual(["2"]);
+    expect(u.patch).toEqual({ callStatus: "ulasilamadi", failedStreak: 1 });
+    expect(u.callResult).toBe("ilgilenmiyor");
+  });
+
+  it("aşama değiştiyse eski aşamaya döner; hiç arama yoksa 'aranacak'", async () => {
+    const { decideUndoLastCall } = await import("@/lib/domain/rules");
+    const u = decideUndoLastCall([
+      act("1", "2026-11-13T09:00:00Z", { callResult: "gorusuldu" }),
+      act("2", "2026-11-13T09:00:00Z", { type: "asama", stage: "iletisim_kuruldu" }),
+    ]);
+    expect(u.voidIds.sort()).toEqual(["1", "2"]);
+    expect(u.patch).toEqual({ callStatus: "aranacak", failedStreak: 0, salesStage: "yeni_aday" });
+  });
+
+  it("geçersiz sayılmış aramayı atlar; arama yoksa hata verir", async () => {
+    const { decideUndoLastCall, RuleError } = await import("@/lib/domain/rules");
+    expect(() => decideUndoLastCall([act("1", "2026-11-13T09:00:00Z", { callResult: "gorusuldu", voidedAt: "2026-11-13T10:00:00Z" })])).toThrow(RuleError);
+  });
+});

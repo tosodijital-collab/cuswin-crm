@@ -5,6 +5,7 @@ import { useMemo, useState, useTransition, type ReactNode } from "react";
 import { CallRow, type CallRowData } from "@/components/call-row";
 import { openConfirmSheet } from "@/components/call-outcome-form";
 import { CallSession } from "@/components/call-session";
+import { UndoButton } from "@/components/undo-button";
 import { AppointmentRow } from "@/components/field-rows";
 import { WhatsappTo } from "@/components/send-whatsapp";
 import { closeSheet, openSheet } from "@/components/sheet";
@@ -270,7 +271,8 @@ function TodayPlan({
                 <Link href={`/isletme?id=${b.id}`} className="min-w-0 truncate text-[15px] font-medium hover:underline">
                   {b.name}
                 </Link>
-                <span className="shrink-0 text-sm text-muted">
+                <span className="flex shrink-0 items-center gap-2 text-sm text-muted">
+                  <span>
                   {a.type === "ziyaret"
                     ? a.visitResult
                       ? VISIT_RESULT_LABELS[a.visitResult]
@@ -279,6 +281,10 @@ function TodayPlan({
                       ? CALL_STATUS_LABELS[a.callResult]
                       : "Arama"}{" "}
                   · {formatTime(a.at)}
+                  </span>
+                  {a.type === "arama" && (
+                    <UndoButton businessId={b.id} className="min-h-10 rounded-md border border-line px-2.5 text-[13px] font-medium text-stop disabled:opacity-50" />
+                  )}
                 </span>
               </li>
             ))}

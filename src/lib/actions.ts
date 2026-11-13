@@ -177,6 +177,14 @@ export async function addNoteAction(_: ActionState, formData: FormData): Promise
   });
 }
 
+/** "Yanlış girdim": son arama sonucunu geri alır, klinik tekrar aranacaklara döner. */
+export async function undoLastCallAction(businessId: string): Promise<ActionState> {
+  return run(async () => {
+    await getRepository().undoLastCall(id.parse(businessId));
+    return "Geri alındı. Klinik tekrar aranacaklarda; doğru sonucu girebilirsin.";
+  });
+}
+
 export async function voidActivityAction(_: ActionState, formData: FormData): Promise<ActionState> {
   return run(async () => {
     const { businessId, activityId } = z.object({ businessId: id, activityId: id }).parse(fields(formData));

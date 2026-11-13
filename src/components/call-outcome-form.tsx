@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useId, useState } from "react";
+import { useActionState, useId, useState } from "react";
 import { recordCallAction, type ActionState } from "@/lib/actions";
 import { CALL_STATUS_LABELS, MEETING_TYPE_LABELS, SALES_STAGE_LABELS } from "@/lib/domain/labels";
 import { CALL_STATUSES, MEETING_TYPES, SALES_STAGES, type CallStatus, type SalesStage } from "@/lib/domain/types";
@@ -11,6 +11,7 @@ import { confirmationText } from "@/lib/domain/sales-playbook";
 import { InsightsField } from "./insights";
 import { WhatsappTo } from "./send-whatsapp";
 import { closeSheet, openSheet } from "./sheet";
+import { savedWithUndo } from "@/lib/client/undo";
 import { showToast } from "./toast";
 import { buttonClass, FieldLabel, FormMessage, inputClass } from "./ui";
 
@@ -35,18 +36,19 @@ export function CallOutcomeForm({
   defaultNote?: string;
   resultLabel?: string;
 }) {
-  const [state, action, pending] = useActionState<ActionState, FormData>(recordCallAction, { ok: false });
+  // Bildirim ve sonraki adım kaydın hemen ardından açılır: kayıt listeyi tazeleyince bu form kaybolabilir.
+  const [state, action, pending] = useActionState<ActionState, FormData>(async (prev, fd) => {
+    const r = await recordCallAction(prev, fd);
+    if (r.ok) {
+      if (r.message) savedWithUndo(r.message, businessId);
+      onDone?.();
+    }
+    return r;
+  }, { ok: false });
   const [result, setResult] = useState<CallStatus | "">("");
   const [stage, setStage] = useState<SalesStage | "">("");
   const withAppointment = stage === "randevu_alindi";
   const uid = useId();
-
-  useEffect(() => {
-    if (state.ok && onDone) {
-      if (state.message) showToast(state.message);
-      onDone();
-    }
-  }, [state, onDone]);
 
   return (
     <form action={action} className="grid gap-3 sm:grid-cols-2">
@@ -197,29 +199,24 @@ export function AppointmentQuickForm({
   /** Yüz yüze randevuda kliniğin adresi; takvimde yol tarifi için. */
   defaultLocation?: string;
 }) {
-  const [state, action, pending] = useActionState<ActionState, FormData>(recordCallAction, { ok: false });
+  // Teyit adımı kaydın hemen ardından açılır: kayıt listeyi tazeleyince bu form kaybolabilir.
+  const [state, action, pending] = useActionState<ActionState, FormData>(async (prev, fd) => {
+    const r = await recordCallAction(prev, fd);
+    if (r.ok) {
+      const d = String(fd.get("apptDate") ?? "");
+      const t = String(fd.get("apptTime") ?? "");
+      if (business && d && t) {
+        const when = istanbulToUtc(d, t).toISOString();
+        openConfirmSheet(business, when, `Randevu kaydedildi: ${formatDateTime(when)}`);
+      } else if (r.message) showToast(r.message);
+      onDone?.();
+    }
+    return r;
+  }, { ok: false });
   const uid = useId();
-  const [when, setWhen] = useState<string>();
-  useEffect(() => {
-    if (!state.ok) return;
-    if (state.message) showToast(state.message);
-    if (business && when) openConfirmSheet(business, when, `Randevu kaydedildi: ${formatDateTime(when)}`);
-    onDone?.();
-    // Yalnızca kayıt sonucu değişince çalışmalı.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state]);
 
   return (
-    <form
-      action={action}
-      onSubmit={(e) => {
-        const f = new FormData(e.currentTarget);
-        const d = String(f.get("apptDate") ?? "");
-        const t = String(f.get("apptTime") ?? "");
-        if (d && t) setWhen(istanbulToUtc(d, t).toISOString());
-      }}
-      className="grid gap-3"
-    >
+    <form action={action} className="grid gap-3">
       <input type="hidden" name="businessId" value={businessId} />
       <InsightsField />
       <input type="hidden" name="result" value="gorusuldu" />

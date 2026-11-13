@@ -8,7 +8,9 @@ import {
   decideCallOutcome,
   decideVisitOutcome,
   groupOpenTasks,
+  decideUndoLastCall,
   recomputeFailedStreak,
+  undoNote,
   RuleError,
   selectDailyCandidates,
   type CallOutcomeInput,
@@ -246,6 +248,36 @@ export class MemoryRepository implements CrmRepository {
   async addNote(businessId: string, note: string): Promise<void> {
     this.mustBusiness(businessId);
     this.s.activities.push({ id: id(), businessId, at: nowIso(), type: "not", note });
+  }
+
+  async undoLastCall(businessId: string): Promise<void> {
+    const b = this.mustBusiness(businessId);
+    const undo = decideUndoLastCall(this.s.activities.filter((a) => a.businessId === businessId));
+    const now = nowIso();
+    for (const a of this.s.activities) if (undo.voidIds.includes(a.id)) a.voidedAt = now;
+    const t0 = Date.parse(undo.at);
+    const mine = this.s.tasks.filter((t) => t.businessId === businessId);
+    const closedByIt = mine
+      .filter((t) => t.status === "tamamlandi" && t.closedAt && Math.abs(Date.parse(t.closedAt) - t0) < 5_000)
+      .sort((x, y) => (y.closedAt ?? "").localeCompare(x.closedAt ?? ""))[0];
+    for (const t of mine) {
+      if (t.status === "acik") {
+        t.status = "iptal";
+        t.closedAt = now;
+      }
+    }
+    let due = today();
+    let time: string | undefined;
+    if (closedByIt) {
+      closedByIt.status = "acik";
+      closedByIt.closedAt = undefined;
+      due = closedByIt.dueDate;
+      time = closedByIt.dueTime;
+    } else {
+      this.s.tasks.push({ id: id(), businessId, kind: "takip", reason: "planlandi", dueDate: due, status: "acik", createdAt: now });
+    }
+    Object.assign(b, undo.patch, { nextActionDate: due, nextActionTime: time });
+    this.s.activities.push({ id: id(), businessId, at: now, type: "duzeltme", note: undoNote(undo.callResult) });
   }
 
   async voidActivity(businessId: string, activityId: string): Promise<void> {

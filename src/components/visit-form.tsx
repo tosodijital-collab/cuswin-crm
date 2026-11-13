@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useId, useState } from "react";
+import { useActionState, useId, useState } from "react";
 import { recordVisitAction, type ActionState } from "@/lib/actions";
 import { SALES_STAGE_LABELS, VISIT_RESULT_LABELS } from "@/lib/domain/labels";
 import { suggestedFollowUp } from "@/lib/domain/rules";
@@ -28,19 +28,20 @@ export function VisitForm({
   /** Kayıt başarılı olunca (sıradaki adımı göstermek için). */
   onSaved?: (result: VisitResult) => void;
 }) {
-  const [state, action, pending] = useActionState<ActionState, FormData>(recordVisitAction, { ok: false });
+  // Sonraki adım kaydın hemen ardından açılır: kayıt listeyi tazeleyince kart başka bölüme geçebilir.
+  const [state, action, pending] = useActionState<ActionState, FormData>(async (prev, fd) => {
+    const r = await recordVisitAction(prev, fd);
+    if (r.ok) {
+      if (r.message) showToast(r.message);
+      const saved = fd.get("result");
+      if (saved) onSaved?.(saved as VisitResult);
+      onDone?.();
+    }
+    return r;
+  }, { ok: false });
   const [result, setResult] = useState<VisitResult>();
   const [insights, setInsights] = useState<InsightId[]>([]);
   const uid = useId();
-
-  useEffect(() => {
-    if (!state.ok) return;
-    if (state.message) showToast(state.message);
-    if (result) onSaved?.(result);
-    onDone?.();
-    // Yalnızca kayıt sonucu değişince çalışmalı.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state]);
 
   return (
     <form action={action} className="grid gap-3">

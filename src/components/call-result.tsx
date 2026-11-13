@@ -3,7 +3,7 @@
 // "Nasıl bitti?": aramadan sonra tek ekran. Beş net sonuç; her biri ya tek dokunuşla kaydedilir
 // ya da tek bir küçük form açar. Satış aşaması ve durum kuralları sunucu tarafında otomatik belirlenir.
 
-import { useActionState, useCallback, useEffect, useState } from "react";
+import { useActionState, useCallback, useState } from "react";
 import { recordCallAction, type ActionState } from "@/lib/actions";
 import { whatsappNumberOf } from "@/lib/domain/contact-info";
 import { MISSED_CALL_TEXT, type InsightId } from "@/lib/domain/sales-playbook";
@@ -13,7 +13,7 @@ import { AppointmentQuickForm, CallOutcomeForm } from "./call-outcome-form";
 import { InsightChips, InsightsField, InsightsProvider } from "./insights";
 import { SendWhatsapp, WhatsappTo } from "./send-whatsapp";
 import { closeSheet, openSheet } from "./sheet";
-import { showToast } from "./toast";
+import { savedWithUndo } from "@/lib/client/undo";
 import { FieldLabel, FormMessage, inputClass } from "./ui";
 import { VisitForm } from "./visit-form";
 
@@ -37,12 +37,15 @@ function QuickResult({
   className: string;
   onSaved?: () => void;
 }) {
-  const [state, action, pending] = useActionState<ActionState, FormData>(recordCallAction, { ok: false });
-  useEffect(() => {
-    if (!state.ok) return;
-    showToast(`${label}: kaydedildi.`);
-    onSaved?.();
-  }, [state, label, onSaved]);
+  // Bildirim kaydın hemen ardından: kayıt listeyi tazeleyince bu düğme kaybolabilir.
+  const [state, action, pending] = useActionState<ActionState, FormData>(async (prev, fd) => {
+    const r = await recordCallAction(prev, fd);
+    if (r.ok) {
+      savedWithUndo(`${label}: kaydedildi.`, businessId);
+      onSaved?.();
+    }
+    return r;
+  }, { ok: false });
   return (
     <form action={action} className="contents">
       <input type="hidden" name="businessId" value={businessId} />
@@ -61,13 +64,14 @@ function QuickResult({
 }
 
 export function CallLaterForm({ businessId, today, onDone }: { businessId: string; today: string; onDone: () => void }) {
-  const [state, action, pending] = useActionState<ActionState, FormData>(recordCallAction, { ok: false });
-  useEffect(() => {
-    if (state.ok) {
-      showToast("Tekrar arama planlandı.");
+  const [state, action, pending] = useActionState<ActionState, FormData>(async (prev, fd) => {
+    const r = await recordCallAction(prev, fd);
+    if (r.ok) {
+      savedWithUndo("Tekrar arama planlandı.", businessId);
       onDone();
     }
-  }, [state, onDone]);
+    return r;
+  }, { ok: false });
   return (
     <form action={action} className="grid gap-2">
       <input type="hidden" name="businessId" value={businessId} />

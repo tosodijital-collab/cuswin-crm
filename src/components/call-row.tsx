@@ -9,6 +9,7 @@ import { MAX_FAILED_STREAK } from "@/lib/domain/rules";
 import type { Activity, Business, CallTask } from "@/lib/domain/types";
 import { AppointmentQuickForm } from "./call-outcome-form";
 import { CallResult } from "./call-result";
+import { savedWithUndo } from "@/lib/client/undo";
 import { CallScript } from "./call-script";
 import { InsightSummary } from "./insights";
 import { FormMessage } from "./ui";
@@ -26,7 +27,11 @@ export function CallRow({ row, today, tone }: { row: CallRowData; today: string;
   const { business: b } = row;
   const [open, setOpen] = useState<false | "arama" | "sonuc" | "randevu">(false);
   const close = useCallback(() => setOpen(false), []);
-  const [quick, quickAction, quickPending] = useActionState<ActionState, FormData>(recordCallAction, { ok: false });
+  const [quick, quickAction, quickPending] = useActionState<ActionState, FormData>(async (prev, fd) => {
+    const r = await recordCallAction(prev, fd);
+    if (r.ok) savedWithUndo("Açmadı: kaydedildi, yarın tekrar listende.", b.id);
+    return r;
+  }, { ok: false });
   const tel = telHref(b.phone);
 
   return (

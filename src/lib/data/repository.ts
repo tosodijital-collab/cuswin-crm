@@ -118,6 +118,8 @@ export interface CrmRepository {
   setSalesStage(businessId: string, stage: SalesStage, note?: string): Promise<void>;
   addNote(businessId: string, note: string): Promise<void>;
   voidActivity(businessId: string, activityId: string): Promise<void>;
+  /** Yanlış girilen son arama sonucunu geri alır; klinik o aramadan önceki durumuna ve görevine döner. */
+  undoLastCall(businessId: string): Promise<void>;
 
   createBusiness(input: BusinessInput): Promise<string>;
   /** WhatsApp numarasını kişilere ekler; kayıtlı bir numaraysa bir şey yapmaz. */

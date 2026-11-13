@@ -3,7 +3,7 @@
 // Kliniğe PDF linki ve hazır mesaj: ekrandaki numarayla doğrudan WhatsApp sohbeti açılır.
 // Telefonun paylaşım penceresi yalnızca rehberdeki kişileri gösterdiği için kullanılmaz; numara kaydetmek gerekmez.
 
-import { startTransition, useActionState, useEffect, useId, useState } from "react";
+import { startTransition, useActionState, useId, useState } from "react";
 import { recordCallAction, saveWhatsappAction, type ActionState } from "@/lib/actions";
 import { formatPhone, normalizePhone, whatsappChatHref, whatsappNumberOf } from "@/lib/domain/contact-info";
 import { getMaterial, type MaterialId } from "@/lib/domain/materials";
@@ -12,7 +12,7 @@ import { addDays } from "@/lib/domain/time";
 import type { Business } from "@/lib/domain/types";
 import { useMaterialMessage } from "./share-material";
 import { useInsightLine } from "./insights";
-import { showToast } from "./toast";
+import { savedWithUndo } from "@/lib/client/undo";
 import { FieldLabel, FormMessage, inputClass } from "./ui";
 
 const CHOICES: { id: MaterialId; label: string }[] = [
@@ -37,15 +37,18 @@ export function SendWhatsapp({
   const uid = useId();
   const [materialId, setMaterialId] = useState<MaterialId>(initial);
   const [number, setNumber] = useState(() => formatPhone(whatsappNumberOf(b) ?? b.phone) ?? "");
-  const [state, action] = useActionState<ActionState, FormData>(record ? recordCallAction : saveWhatsappAction, { ok: false });
+  // Bildirim kaydın hemen ardından: kayıt listeyi tazeleyince bu panel kaybolabilir.
+  const [state, action] = useActionState<ActionState, FormData>(async (prev, fd) => {
+    const r = await (record ? recordCallAction : saveWhatsappAction)(prev, fd);
+    if (r.ok) {
+      if (record) savedWithUndo("Gönderildi. Takip araması 2 iş günü içinde listende.", b.id);
+      onDone?.();
+    }
+    return r;
+  }, { ok: false });
   const material = getMaterial(materialId);
   const message = useMaterialMessage(material);
   const insights = useInsightLine();
-  useEffect(() => {
-    if (!state.ok) return;
-    if (record) showToast("Gönderildi. Takip araması 2 iş günü içinde listende.");
-    onDone?.();
-  }, [state, record, onDone]);
 
   const e164 = normalizePhone(number);
   const href = message ? whatsappChatHref(number, message) : undefined;

@@ -8,6 +8,8 @@ import {
   dataIssues,
   selectDailyCandidates,
   decideCallOutcome,
+  decideUndoLastCall,
+  undoNote,
   decideVisitOutcome,
   recomputeFailedStreak,
   RuleError,
@@ -425,6 +427,44 @@ export class SupabaseRepository implements CrmRepository {
 
   async addNote(businessId: string, note: string): Promise<void> {
     await this.q(this.db.from("activities").insert({ business_id: businessId, type: "not", note }));
+  }
+
+  async undoLastCall(businessId: string): Promise<void> {
+    const rows = await this.q(this.db.from("activities").select("*").eq("business_id", businessId));
+    const undo = decideUndoLastCall((rows as Row[]).map(toActivity));
+    const now = new Date().toISOString();
+    const today = toDateStr(new Date());
+    await this.q(this.db.from("activities").update({ voided_at: now }).in("id", undo.voidIds).is("voided_at", null));
+
+    // Yanlış sonucun açtığı görev iptal, kapattığı görev yeniden açılır (aynı işlemde yazıldıkları için zamanları aynı).
+    const tasks = ((await this.q(this.db.from("call_tasks").select("*").eq("business_id", businessId))) as Row[]).map(toTask);
+    const t0 = Date.parse(undo.at);
+    const closedByIt = tasks
+      .filter((t) => t.status === "tamamlandi" && t.closedAt && Math.abs(Date.parse(t.closedAt) - t0) < 5_000)
+      .sort((a, b) => (b.closedAt ?? "").localeCompare(a.closedAt ?? ""))[0];
+    await this.q(this.db.from("call_tasks").update({ status: "iptal", closed_at: now }).eq("business_id", businessId).eq("status", "acik"));
+    let due = today;
+    let time: string | undefined;
+    if (closedByIt) {
+      await this.q(this.db.from("call_tasks").update({ status: "acik", closed_at: null }).eq("id", closedByIt.id));
+      due = closedByIt.dueDate;
+      time = closedByIt.dueTime;
+    } else {
+      await this.q(this.db.from("call_tasks").insert({ business_id: businessId, kind: "takip", reason: "planlandi", due_date: today }));
+    }
+    await this.q(
+      this.db
+        .from("businesses")
+        .update({
+          call_status: undo.patch.callStatus,
+          failed_streak: undo.patch.failedStreak,
+          ...(undo.patch.salesStage ? { sales_stage: undo.patch.salesStage } : {}),
+          next_action_date: due,
+          next_action_time: time ?? null,
+        })
+        .eq("id", businessId),
+    );
+    await this.q(this.db.from("activities").insert({ business_id: businessId, type: "duzeltme", note: undoNote(undo.callResult) }));
   }
 
   async voidActivity(businessId: string, activityId: string): Promise<void> {

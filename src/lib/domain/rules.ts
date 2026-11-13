@@ -309,3 +309,63 @@ export function isPausedOn(pause: Pause | undefined, date: DateStr): boolean {
   if (pause.forever) return true;
   return Boolean(pause.from && pause.until && pause.from <= date && date <= pause.until);
 }
+
+export type UndoCall = {
+  /** Geçersiz sayılacak kayıtlar: son arama ve aynı anda yazılan aşama değişikliği. */
+  voidIds: string[];
+  /** Geri alınan aramanın zamanı (görevleri eşlemek için). */
+  at: string;
+  callResult?: CallStatus;
+  patch: Pick<Business, "callStatus" | "failedStreak"> & Partial<Pick<Business, "salesStage">>;
+};
+
+const VISIT_CALL_STATUS: Partial<Record<VisitResult, CallStatus>> = {
+  demo_yapildi: "gorusuldu",
+  doktorla_gorusuldu: "gorusuldu",
+  sekreterle_gorusuldu: "gorusuldu",
+  ilgilenmiyor: "ilgilenmiyor",
+};
+
+/**
+ * "Yanlış sonuç girdim": son aramayı (ve onunla aynı anda yazılan aşama değişikliğini) geçersiz sayar,
+ * işletmenin durumunu ve aşamasını o aramadan önceki haline döndürür. Geçmiş silinmez.
+ */
+export function decideUndoLastCall(activities: Activity[]): UndoCall {
+  const live = activities.filter((a) => !a.voidedAt).sort((a, b) => b.at.localeCompare(a.at));
+  const last = live.find((a) => a.type === "arama");
+  if (!last) throw new RuleError("Geri alınacak arama sonucu yok.");
+  const t0 = Date.parse(last.at);
+  const batch = live.filter((a) => a.type === "asama" && Math.abs(Date.parse(a.at) - t0) < 5_000);
+  const voidIds = [last.id, ...batch.map((a) => a.id)];
+  const rest = live.filter((a) => !voidIds.includes(a.id));
+  const before = rest.filter((a) => Date.parse(a.at) < t0);
+
+  let callStatus: CallStatus = "aranacak";
+  for (const a of before) {
+    if (a.type === "arama" && a.callResult) {
+      callStatus = a.callResult;
+      break;
+    }
+    const fromVisit = a.type === "ziyaret" && a.visitResult ? VISIT_CALL_STATUS[a.visitResult] : undefined;
+    if (fromVisit) {
+      callStatus = fromVisit;
+      break;
+    }
+  }
+  const patch: UndoCall["patch"] = { callStatus, failedStreak: recomputeFailedStreak(rest) };
+  if (batch.length) patch.salesStage = before.find((a) => a.type === "asama" && a.stage)?.stage ?? "yeni_aday";
+  return { voidIds, at: last.at, callResult: last.callResult, patch };
+}
+
+/** Geri alma geçmişte görünsün. */
+export function undoNote(result: CallStatus | undefined): string {
+  const labels: Partial<Record<CallStatus, string>> = {
+    ulasilamadi: "Ulaşılamadı",
+    tekrar_aranacak: "Tekrar aranacak",
+    gorusuldu: "Görüşüldü",
+    ilgilenmiyor: "İlgilenmiyor",
+    iletisim_kurma: "Tekrar iletişim kurma",
+    beklemede: "Beklemeye alındı",
+  };
+  return `Yanlış girilen sonuç geri alındı${result && labels[result] ? ` (${labels[result]})` : ""}. Klinik tekrar aranacaklarda.`;
+}

@@ -82,3 +82,19 @@ describe("ileri günleri planlama", () => {
     expect(again.every((r) => r.added === 0)).toBe(true);
   });
 });
+
+describe("yanlış sonucu geri alma (demo deposu)", () => {
+  it("ilgilenmiyor yanlışlıkla girildiyse klinik bugünün listesine aynı görevle döner", async () => {
+    const { MemoryRepository } = await import("@/lib/data/memory-store");
+    const repo = new MemoryRepository();
+    const home = await repo.getHome();
+    const target = home.newTasks[0];
+    await repo.recordCall(target.business.id, { result: "ilgilenmiyor" });
+    expect((await repo.getHome()).newTasks.some((t) => t.task.id === target.task.id)).toBe(false);
+    await repo.undoLastCall(target.business.id);
+    const after = await repo.getHome();
+    expect(after.newTasks.some((t) => t.task.id === target.task.id)).toBe(true);
+    const detail = await repo.getBusiness(target.business.id);
+    expect(detail?.business.callStatus).toBe(target.business.callStatus);
+  });
+});

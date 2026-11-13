@@ -6,6 +6,7 @@ import { AppointmentControls, CalendarStatus, NewAppointmentToggle } from "@/com
 import { NoteForm, StageForm, VoidActivityButton } from "@/components/business-forms";
 import { AppointmentQuickToggle, CallOutcomeForm } from "@/components/call-outcome-form";
 import { SendWhatsapp } from "@/components/send-whatsapp";
+import { UndoButton } from "@/components/undo-button";
 import { CallStatusBadge, EmptyState, LoadState, Panel, StageBadge } from "@/components/ui";
 import { useData } from "@/lib/client/refresh";
 import { getRepository } from "@/lib/data";
@@ -33,6 +34,7 @@ export function BusinessDetailScreen({ id }: { id: string }) {
   const { business: b, openTask, activities, appointments } = detail;
   const now = new Date();
   const today = toDateStr(now);
+  const lastCallId = [...activities].sort((x, y) => y.at.localeCompare(x.at)).find((x) => x.type === "arama" && !x.voidedAt)?.id;
   const tel = telHref(b.phone);
 
   return (
@@ -96,6 +98,10 @@ export function BusinessDetailScreen({ id }: { id: string }) {
                     </div>
                     {a.voidedAt ? (
                       <p className="mt-1 text-sm text-muted">Hatalı olarak işaretlendi, {formatDateTime(a.voidedAt)}.</p>
+                    ) : a.id === lastCallId ? (
+                      <div className="mt-1">
+                        <UndoButton businessId={b.id} />
+                      </div>
                     ) : (
                       (a.type === "arama" || a.type === "ziyaret" || a.type === "not") && (
                         <div className="mt-1">
