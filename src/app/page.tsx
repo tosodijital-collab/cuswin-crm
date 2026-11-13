@@ -22,7 +22,7 @@ import {
   planningDays,
   SENT_PREFIX,
   taskLabel,
-  weekDays,
+  horizonDays,
   type MessageTask,
 } from "@/lib/domain/day-plan";
 import { CALL_STATUS_LABELS, VISIT_RESULT_LABELS } from "@/lib/domain/labels";
@@ -45,7 +45,7 @@ export default function HomePage() {
       repo.listBusinesses({}),
       repo.listAppointments(),
       repo.listContactHistory(),
-      repo.listUpcomingTasks(addDays(today, 1), addDays(today, 6)),
+      repo.listUpcomingTasks(addDays(today, 1), addDays(today, 13)),
       repo.listNotesWithPrefix(SENT_PREFIX),
     ]);
   });
@@ -96,7 +96,7 @@ export default function HomePage() {
       </div>
 
       <WeekStrip
-        days={weekDays(today)}
+        days={horizonDays(today)}
         today={today}
         selected={day}
         onSelect={setSelected}
@@ -139,7 +139,7 @@ function WeekStrip({
   countFor: (d: string) => { calls: number; appts: number };
 }) {
   return (
-    <div role="tablist" aria-label="Hafta" className="grid grid-cols-7 gap-1">
+    <div role="tablist" aria-label="Takvim" className="-mx-4 flex gap-1 overflow-x-auto px-4 pb-1">
       {days.map((d) => {
         const date = new Date(`${d}T12:00:00+03:00`);
         const { calls, appts } = countFor(d);
@@ -150,7 +150,7 @@ function WeekStrip({
             role="tab"
             aria-selected={d === selected}
             onClick={() => onSelect(d)}
-            className="flex min-h-[4.75rem] flex-col items-center justify-center rounded-lg border border-line bg-surface px-0.5 py-1.5 aria-selected:border-ink aria-selected:bg-ink aria-selected:text-white"
+            className="flex min-h-[4.75rem] w-[3.4rem] shrink-0 flex-col items-center justify-center rounded-lg border border-line bg-surface px-0.5 py-1.5 aria-selected:border-ink aria-selected:bg-ink aria-selected:text-white sm:flex-1"
           >
             <span className="text-[12px] font-medium opacity-70">
               {d === today ? "Bugün" : date.toLocaleDateString("tr-TR", { timeZone: "Europe/Istanbul", weekday: "short" })}
@@ -312,7 +312,7 @@ function FuturePlan({
         </p>
         <p className="mt-1 text-sm text-muted">
           Açmayanlar ve &quot;sonra ara&quot; dediklerin buraya kendiliğinden düşer.
-          {tasks.length === 0 && !paused && " Bu güne henüz yeni klinik atanmadı: yukarıdan \"Haftayı planla\"."}
+          {tasks.length === 0 && !paused && " Bu güne henüz yeni klinik atanmadı: yukarıdan \"Cumartesiye kadar planla\"."}
         </p>
       </Panel>
       {appointments.length > 0 && (
@@ -416,7 +416,7 @@ function WeekPlanCard({ paused, pool, target, unplanned }: { paused: boolean; po
           }
           className="min-h-12 rounded-md bg-ink px-4 text-[16px] font-semibold text-white disabled:opacity-50"
         >
-          {pending ? "Planlanıyor" : `Haftayı planla (günde ${target} klinik)`}
+          {pending ? "Planlanıyor" : `Cumartesiye kadar planla (günde ${target} klinik)`}
         </button>
       )}
     </Panel>

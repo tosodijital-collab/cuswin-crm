@@ -303,7 +303,7 @@ export async function saveSettingsAction(_: ActionState, formData: FormData): Pr
   });
 }
 
-/** "Haftayı planla": bugünden 7 gün (pazar hariç) her güne günlük hedef kadar yeni klinik atar. */
+/** "Cumartesiye kadar planla": plan ufkundaki her iş gününe (pazar hariç) günlük hedef kadar yeni klinik atar. */
 export async function planWeekAction(): Promise<ActionState> {
   return run(async () => {
     const res = await getRepository().planDays(planningDays(toDateStr(new Date())));

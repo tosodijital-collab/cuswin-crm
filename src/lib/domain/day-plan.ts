@@ -126,9 +126,18 @@ export function messagesDue({
   return out;
 }
 
-/** Planlanacak iş günleri: bugünden itibaren `count` gün, pazarlar hariç (klinikler çoğunlukla kapalı). */
-export function planningDays(today: DateStr, count = 7): DateStr[] {
-  return weekDays(today, count).filter((d) => new Date(`${d}T12:00:00Z`).getUTCDay() !== 0);
+const weekday = (d: DateStr) => new Date(`${d}T12:00:00Z`).getUTCDay();
+
+/** Plan ufku: bugünden, en az 5 gün ilerideki ilk cumartesiye kadar (cuma → gelecek haftanın cumartesisi). */
+export function horizonDays(today: DateStr): DateStr[] {
+  let end = addDays(today, 5);
+  while (weekday(end) !== 6) end = addDays(end, 1);
+  return weekDays(today, daysBetween(today, end) + 1);
+}
+
+/** Planlanacak iş günleri: plan ufku, pazarlar hariç (klinikler çoğunlukla kapalı). */
+export function planningDays(today: DateStr): DateStr[] {
+  return horizonDays(today).filter((d) => weekday(d) !== 0);
 }
 
 /** Listeye henüz girmemiş, aranabilir klinik sayısı (kaç günlük iş kaldığını göstermek için). */

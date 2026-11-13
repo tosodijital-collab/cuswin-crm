@@ -129,7 +129,11 @@ describe("teklif ve teyit yazısı", () => {
 describe("haftayı planla", () => {
   it("pazarı atlar", async () => {
     const { planningDays } = await import("@/lib/domain/day-plan");
-    // 13 Kasım 2026 cuma: cu, ct, (pz atlanır), pt, sa, ça, pe
-    expect(planningDays("2026-11-13")).toEqual(["2026-11-13", "2026-11-14", "2026-11-16", "2026-11-17", "2026-11-18", "2026-11-19"]);
+    // 13 Kasım 2026 cuma → gelecek cumartesi 21 Kasım; pazar (15) atlanır
+    expect(planningDays("2026-11-13")).toEqual([
+      "2026-11-13", "2026-11-14", "2026-11-16", "2026-11-17", "2026-11-18", "2026-11-19", "2026-11-20", "2026-11-21",
+    ]);
+    // pazartesi → aynı haftanın cumartesisi
+    expect(planningDays("2026-11-16").at(-1)).toBe("2026-11-21");
   });
 });
