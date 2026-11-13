@@ -19,7 +19,7 @@ export const OBJECTIONS: { q: string; a: string }[] = [
   },
   {
     q: "Sekreterimiz var.",
-    a: "Sekreteriniz kalıyor. Cuswin onun yetişemediği anlara bakıyor: ikinci hat, öğle arası, akşam, hafta sonu. Pilot klinikte mesajların yarısından fazlası mesai dışında geldi.",
+    a: "Sekreteriniz kalıyor. Cuswin onun yetişemediği anlara bakıyor: ikinci hat, öğle arası, akşam, hafta sonu. Pilot klinikte mesajların %60'ı mesai dışında geliyor.",
   },
   {
     q: "Yanlış bir şey söylerse?",
@@ -59,7 +59,7 @@ export const OBJECTIONS: { q: string; a: string }[] = [
   },
   {
     q: "Fiyat ne kadar?",
-    a: "Mesaj ve arama yoğunluğunuza göre değişiyor; teklif şablonunu göster. Netleşmiş rakamı söyle, uydurma.",
+    a: "Mesaj ve arama yoğunluğunuza göre değişiyor; teklifi yüz yüze, yoğunluğunuza bakarak veriyorum. Netleşmiş rakamı söyle, uydurma.",
   },
 ];
 
@@ -86,7 +86,7 @@ export const FOLLOW_UPS = [
     id: "gun-3",
     label: "3. gün mesajı",
     when: "3 gün sonra, \"düşüneyim\" diyenlere",
-    text: "Merhaba, kısa bir not: pilot kliniğimizde mesai dışında gelen 464 konuşmanın 462'si karşılandı. Sizin için de başlatalım mı?",
+    text: "Merhaba, kısa bir not: çalıştığımız klinikte hasta mesajlarının %60'ı mesai dışında geliyor. Bu mesajlar sizde cevapsız kalmasın. Bu hafta 10 dakikalığına uğrayayım mı?",
   },
   {
     id: "hafta-2",
@@ -249,7 +249,7 @@ export const PHONE_SCENARIOS: PhoneScenario[] = [
       },
     ],
     bridge:
-      "Tam bunun için arıyorum. Ankara'da bir estetik kliniğinde 1 aydır çalışıyor: mesai dışında gelen 464 konuşmanın 462'sine cevap verdi. Hastaya hemen dönüyor, randevuyu takvime yazıyor, sonra takibini yapıyor. Kurulumu da ben yapıyorum.",
+      "Tam bunun için arıyorum. Ankara'da bir estetik kliniğinde 1 aydır çalışıyor; oraya gelen mesajların %60'ı mesai dışında geliyor. Sistem hastaya hemen dönüyor, randevuyu takvime yazıyor, sonra takibini yapıyor. Kurulumu da ben yapıyorum.",
     close:
       "Anlatmak yerine göstermek isterim: kendi telefonunuzdan hasta gibi yazıyorsunuz, cevabı o an görüyorsunuz. 10 dakika sürer. {gün} 14:00 mü uygun olur, 16:00 mı?",
     confirm: "Harika, {gün} saat __ olarak yazdım, kliniğinize geliyorum. WhatsApp'tan teyit atıyorum. İyi çalışmalar.",
@@ -265,7 +265,7 @@ export const PHONE_OBJECTIONS: { q: string; a: string; app?: string }[] = [
   },
   {
     q: "Sekreterimiz var, yetişiyoruz.",
-    a: "Çok iyi, sekreteriniz yerinde kalıyor. Sistem onun yetişemediği anlarda devreye giriyor: ikinci hat çalarken, öğle arasında, akşam ve hafta sonu. Çalıştığımız klinikte mesajların yarısından fazlası mesai dışında geliyor. Sizde akşamları kim bakıyor?",
+    a: "Çok iyi, sekreteriniz yerinde kalıyor. Sistem onun yetişemediği anlarda devreye giriyor: ikinci hat çalarken, öğle arasında, akşam ve hafta sonu. Çalıştığımız klinikte mesajların %60'ı mesai dışında geliyor. Sizde akşamları kim bakıyor?",
   },
   {
     q: "Zaten bir sistemimiz / CRM'imiz var.",

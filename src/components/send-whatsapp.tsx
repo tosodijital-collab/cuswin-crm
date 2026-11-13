@@ -18,7 +18,6 @@ import { FieldLabel, FormMessage, inputClass } from "./ui";
 const CHOICES: { id: MaterialId; label: string }[] = [
   { id: "tanitim", label: "Tanıtım" },
   { id: "brosur", label: "Broşür" },
-  { id: "teklif", label: "Teklif" },
 ];
 
 export function SendWhatsapp({
@@ -72,7 +71,7 @@ export function SendWhatsapp({
 
   return (
     <div className="grid gap-3">
-      <div role="tablist" aria-label="Hangi dosya?" className="grid grid-cols-3 gap-1 rounded-lg border border-line bg-surface p-1">
+      <div role="tablist" aria-label="Hangi dosya?" className="grid grid-cols-2 gap-1 rounded-lg border border-line bg-surface p-1">
         {CHOICES.map((c) => (
           <button
             key={c.id}

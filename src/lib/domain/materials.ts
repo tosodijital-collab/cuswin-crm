@@ -2,7 +2,7 @@
 // Dosyalar public/dosyalar altında: herkese açık yayınlanır, bu yüzden yalnızca dışarıya gönderilecek
 // belgeler burada durur (iç kullanım saha kiti burada yok).
 
-export type MaterialId = "tanitim" | "brosur" | "teklif" | "is-ortakligi";
+export type MaterialId = "tanitim" | "brosur" | "is-ortakligi";
 
 export type Material = {
   id: MaterialId;
@@ -37,16 +37,6 @@ export const MATERIALS: Material[] = [
     when: "Kapıda elden bırakılır (basılı). Fuarda tanışılana aynı gün WhatsApp'tan.",
     message:
       "Merhaba, Cuswin'den Özkan, bugün tanıştık. Tek sayfalık özet burada:\n{link}\n\nKliniğinizde 10 dakikalık bir gösterim için bu hafta hangi gün uygun?",
-  },
-  {
-    id: "teklif",
-    title: "Teklif şablonu",
-    fileName: "Cuswin-Teklif.pdf",
-    path: "/dosyalar/cuswin-teklif.pdf",
-    pages: "2 sayfa",
-    when: "Demo yapıldı ve klinik \"teklif gönderin\" dedi. Doldurulup tanıtım dosyasıyla birlikte gönderilir.",
-    message:
-      "Merhaba, Cuswin'den Özkan. Konuştuğumuz teklif burada:\n{link}\n\nKurulum 3 gün sürüyor, siz onay vermeden hiçbir şey açılmıyor. Hangi gün başlayalım?",
   },
   {
     id: "is-ortakligi",

@@ -16,7 +16,6 @@ import { CallResult } from "./call-result";
 import { CallScript } from "./call-script";
 import { DemoButton } from "./demo";
 import { InsightSummary } from "./insights";
-import { OfferButton } from "./offer-builder";
 import { SendWhatsapp } from "./send-whatsapp";
 import { closeSheet, openSheet } from "./sheet";
 import { Badge, StageBadge } from "./ui";
@@ -117,8 +116,7 @@ export function AppointmentRow({
               >
                 Ziyaret sonucu
               </button>
-              <DemoButton className={`${btn} border-meet/40 text-meet`} />
-              <OfferButton business={b} today={today} notes={[a.note]} className={`${btn} border-meet/40 text-meet`} />
+              <DemoButton className={`${btn} col-span-2 border-meet/40 text-meet`} />
               <div className="col-span-2 flex flex-wrap gap-x-4 gap-y-1 text-[15px]">
                 {tel && (
                   <a href={tel} className="min-h-9 font-medium tabular-nums text-call">
@@ -405,13 +403,7 @@ export function MapStopCard({
           <button type="button" onClick={() => toggle("sonuc")} aria-expanded={open === "sonuc"} className={`${btn} aria-expanded:bg-paper`}>
             Telefon sonucu
           </button>
-          <DemoButton className={`${btn} border-meet/40 text-meet`} />
-          <OfferButton
-            business={b}
-            today={today}
-            notes={[contact?.lastVisit?.note, contact?.lastCall?.note]}
-            className={`${btn} border-meet/40 text-meet`}
-          />
+          <DemoButton className={`${btn} col-span-2 border-meet/40 text-meet`} />
         </div>
         {next && (
           <button

@@ -5,7 +5,6 @@ import type { ReactNode } from "react";
 import { AppointmentControls, CalendarStatus, NewAppointmentToggle } from "@/components/appointment-forms";
 import { NoteForm, StageForm, VoidActivityButton } from "@/components/business-forms";
 import { AppointmentQuickToggle, CallOutcomeForm } from "@/components/call-outcome-form";
-import { OfferButton } from "@/components/offer-builder";
 import { SendWhatsapp } from "@/components/send-whatsapp";
 import { CallStatusBadge, EmptyState, LoadState, Panel, StageBadge } from "@/components/ui";
 import { useData } from "@/lib/client/refresh";
@@ -228,11 +227,6 @@ function SendMaterials({ business: b, today }: { business: Business; today: stri
   return (
     <div className="mt-1 grid gap-3">
       <SendWhatsapp business={b} today={today} />
-      <OfferButton
-        business={b}
-        today={today}
-        className="inline-flex min-h-11 items-center justify-center rounded-md border border-meet/40 px-3 text-[15px] font-medium text-meet"
-      />
       {number && (
         <div className="grid grid-cols-2 gap-2">
           {FOLLOW_UPS.map((f) => (

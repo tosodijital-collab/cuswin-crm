@@ -30,7 +30,7 @@ export const SALES_STAGE_LABELS: Record<SalesStage, string> = {
   iletisim_kuruldu: "İletişim kuruldu",
   randevu_alindi: "Randevu alındı",
   gorusme_yapildi: "Görüşme yapıldı",
-  teklif_gonderildi: "Teklif gönderildi",
+  teklif_gonderildi: "Teklif verildi",
   musteri_oldu: "Müşteri oldu",
   olumsuz: "Olumsuz sonuçlandı",
 };

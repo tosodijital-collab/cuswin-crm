@@ -51,9 +51,6 @@ export function MaterialsList() {
             <strong className="font-medium">Kapıda:</strong> basılı broşürü bırak, aynı gün tanıtım dosyasını gönder.
           </li>
           <li>
-            <strong className="font-medium">Demodan sonra &quot;teklif gönderin&quot;:</strong> doldurulmuş teklif ve tanıtım dosyası.
-          </li>
-          <li>
             <strong className="font-medium">Fuarda:</strong> broşürü elden ver, aynı gün WhatsApp&apos;tan da gönder.
           </li>
           <li>

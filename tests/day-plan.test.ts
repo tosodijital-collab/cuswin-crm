@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import { daysBetween, doneToday, messagesDue, orderToday, sentNote, taskLabel, weekDays } from "@/lib/domain/day-plan";
-import { decodeOffer, encodeOffer, formatTl, offerNumber, type Offer } from "@/lib/domain/offer";
 import { formatLongDateTime } from "@/lib/domain/time";
 import type { Activity, Appointment, Business, CallTask } from "@/lib/domain/types";
 
@@ -100,27 +99,7 @@ describe("gönderilecek mesajlar", () => {
   });
 });
 
-describe("teklif ve teyit yazısı", () => {
-  const o: Offer = { c: "Örnek Estetik Kliniği", y: "Dr. Ayşe", p: "Growth", t: "sesli", k: 15000, a: 9500, v: false, n: "• Akşam bakan yok", d: "2026-11-13", g: 14 };
-
-  it("linke yazar ve geri okur (Türkçe karakterler dahil)", () => {
-    const t = encodeOffer(o);
-    expect(t).toMatch(/^[A-Za-z0-9_-]+$/);
-    expect(decodeOffer(t)).toEqual(o);
-  });
-
-  it("bozuk ya da kurala uymayan linki reddeder", () => {
-    expect(decodeOffer("bozuk!!")).toBeUndefined();
-    expect(decodeOffer(null)).toBeUndefined();
-    const bad = btoa(JSON.stringify({ ...o, c: "Klinik", y: undefined, n: undefined, a: -5 })).replace(/=+$/, "");
-    expect(decodeOffer(bad)).toBeUndefined();
-  });
-
-  it("tutar ve teklif no biçimi", () => {
-    expect(formatTl(15000)).toBe("15.000 ₺");
-    expect(offerNumber(o)).toMatch(/^CW-20261113-[0-9A-F]{4}$/);
-  });
-
+describe("teyit yazısı", () => {
   it("teyit mesajında tarih açık yazılır", () => {
     expect(formatLongDateTime("2026-11-17T11:00:00Z")).toBe("17 Kasım Salı, saat 14:00");
   });

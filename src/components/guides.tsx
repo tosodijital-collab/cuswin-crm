@@ -116,16 +116,13 @@ export function PhoneGuide() {
 export function VisitGuide() {
   return (
     <div className="grid gap-3 text-[15px]">
-      <dl className="grid grid-cols-2 gap-2 text-center">
-        <Fact value="2.934" label="mesaj ve arama, 30 günde" />
-        <Fact value="462/464" label="mesai dışı konuşma karşılandı" />
-        <Fact value="174" label="randevu alındı" />
-        <Fact value="%93" label="randevuya gelme" />
+      <dl className="grid gap-2 text-center">
+        <Fact value="%60" label="hasta mesajı mesai dışında geliyor (pilot klinik)" />
       </dl>
       <p className="text-sm text-muted">&quot;Ankara&apos;da bir estetik ve KBB kliniği.&quot; Pilot kliniğin adını hiçbir koşulda söyleme.</p>
       <Step n={1} title="Açılış" time="30 sn">
-        Ankara&apos;da bir klinikte Cuswin&apos;i 1 aydır kullanıyoruz. 30 günde 2.934 mesaj ve arama gelmiş, yarısından fazlası mesai
-        saatleri dışında. Sizde durum nasıl?
+        Ankara&apos;da bir klinikte Cuswin&apos;i 1 aydır kullanıyoruz. Gelen hasta mesajlarının %60&apos;ı mesai saatleri dışında geliyor.
+        Sizde durum nasıl?
       </Step>
       <Step n={2} title="Sor ve dinle" time="2 dk">
         Günde kaç mesaj, kaç arama geliyor? Akşam ve hafta sonu kim bakıyor? &quot;Düşüneyim&quot; diyen hastaya geri dönülüyor mu? Cevapları
