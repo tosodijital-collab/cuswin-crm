@@ -31,7 +31,7 @@ const PRIMARY = [
 
 /** Daha az kullanılanlar: telefonda üstteki "Menü"de. */
 const SECONDARY = [
-  { href: "/rapor", label: "Gün sonu" },
+  { href: "/rapor", label: "Rapor" },
   { href: "/randevular", label: "Randevular" },
   { href: "/ayarlar", label: "Ayarlar" },
 ] as const;

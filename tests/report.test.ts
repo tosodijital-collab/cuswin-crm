@@ -75,3 +75,35 @@ describe("tanıştırma yeni kayıt olur", () => {
     expect(again.message).toContain("eklenmedi");
   });
 });
+
+describe("dönemler, gün gün ve dönüşüm", () => {
+  it("bugün/hafta/ay ve kıyas dönemi", async () => {
+    const { periodRange, monthStart } = await import("@/lib/domain/report");
+    expect(monthStart("2026-11-13")).toBe("2026-11-01");
+    expect(periodRange("gun", "2026-11-13")).toMatchObject({ from: "2026-11-13", prevFrom: "2026-11-12", prevTo: "2026-11-12", vs: "düne göre" });
+    // 13 Kasım cuma: hafta pazartesi 9'unda başlar; kıyas 2–6 Kasım
+    expect(periodRange("hafta", "2026-11-13")).toMatchObject({ from: "2026-11-09", to: "2026-11-13", prevFrom: "2026-11-02", prevTo: "2026-11-06" });
+    expect(periodRange("ay", "2026-11-13")).toMatchObject({ from: "2026-11-01", prevFrom: "2026-10-01", prevTo: "2026-10-13" });
+    // 31 Mart: geçen ay şubat 28'de biter
+    expect(periodRange("ay", "2026-03-31")).toMatchObject({ prevFrom: "2026-02-01", prevTo: "2026-02-28" });
+  });
+
+  it("gün gün satırlar ve oranlar; gönderilen mesajlar sayılır", async () => {
+    const { buildActivityReport, conversionRates, dailyBreakdown } = await import("@/lib/domain/report");
+    const acts = [
+      { id: "1", businessId: "b", at: "2026-11-12T08:00:00Z", type: "arama", callResult: "gorusuldu" },
+      { id: "2", businessId: "b", at: "2026-11-13T08:00:00Z", type: "arama", callResult: "ulasilamadi" },
+      { id: "3", businessId: "b", at: "2026-11-13T09:00:00Z", type: "arama", callResult: "tekrar_aranacak", note: "Tanıtım dosyası WhatsApp'tan gönderildi (0532 000 00 00)." },
+      { id: "4", businessId: "b", at: "2026-11-13T10:00:00Z", type: "not", note: "Mesaj gönderildi: randevu teyidi" },
+    ] as Activity[];
+    const rows = dailyBreakdown(acts, "2026-11-12", "2026-11-13");
+    expect(rows.map((r) => [r.date, r.calls, r.reached])).toEqual([
+      ["2026-11-13", 2, 1],
+      ["2026-11-12", 1, 1],
+    ]);
+    const r = buildActivityReport(acts, "2026-11-12", "2026-11-13");
+    expect(r.messages).toBe(2);
+    expect(conversionRates(r)[0]).toMatchObject({ value: 67, detail: "2/3" });
+    expect(conversionRates(r)[2].value).toBeUndefined();
+  });
+});

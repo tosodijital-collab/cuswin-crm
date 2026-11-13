@@ -358,10 +358,10 @@ export class SupabaseRepository implements CrmRepository {
   }
 
   async listActivitiesSince(sinceIso: string): Promise<Activity[]> {
-    const rows = await this.q(
-      this.db.from("activities").select("*").gte("at", sinceIso).is("voided_at", null).order("at", { ascending: false }).limit(5000),
+    const rows = await this.all((f, t) =>
+      this.db.from("activities").select("*").gte("at", sinceIso).is("voided_at", null).order("at", { ascending: false }).order("id").range(f, t),
     );
-    return (rows as Row[]).map(toActivity);
+    return rows.map(toActivity);
   }
 
   async setSalesStage(businessId: string, stage: SalesStage, note?: string): Promise<void> {

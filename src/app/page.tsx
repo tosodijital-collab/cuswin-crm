@@ -28,7 +28,8 @@ import {
 } from "@/lib/domain/day-plan";
 import { CALL_STATUS_LABELS, VISIT_RESULT_LABELS } from "@/lib/domain/labels";
 import { isPausedOn } from "@/lib/domain/rules";
-import { addDays, formatLongDate, formatTime, relativeDay, toDateStr } from "@/lib/domain/time";
+import { buildActivityReport, goalProgress, weekStart, type ActivityReport, type GoalProgress } from "@/lib/domain/report";
+import { addDays, formatLongDate, formatTime, istanbulToUtc, relativeDay, toDateStr } from "@/lib/domain/time";
 import type { Settings } from "@/lib/domain/types";
 
 /**
@@ -48,6 +49,7 @@ export default function HomePage() {
       repo.listContactHistory(),
       repo.listUpcomingTasks(addDays(today, 1), addDays(today, 13)),
       repo.listNotesWithPrefix(SENT_PREFIX),
+      repo.listActivitiesSince(istanbulToUtc(weekStart(today), "00:00").toISOString()),
     ]);
   });
   const [selected, setSelected] = useState<string>();
@@ -55,7 +57,7 @@ export default function HomePage() {
 
   const plan = useMemo(() => {
     if (!data) return undefined;
-    const [home, settings, businesses, appointments, history, upcoming, sentNotes] = data;
+    const [home, settings, businesses, appointments, history, upcoming, sentNotes, weekActivities] = data;
     const today = home.today;
     const byId = new Map(businesses.map((b) => [b.id, b]));
     const activeAppts = appointments.filter((v) => v.appointment.status !== "iptal");
@@ -76,7 +78,9 @@ export default function HomePage() {
     // Planı eksik iş günleri: o güne hiç yeni klinik atanmamış.
     const newOn = (d: string) => tasksOn(d).filter((v) => v.task.kind === "yeni").length;
     const unplanned = planningDays(today).filter((d) => newOn(d) < settings.dailyTarget).length;
-    return { home, settings, today, apptsOn, tasksOn, todayTasks, done, messages, pool, unplanned, callsToday: home.counts.callsToday };
+    const week = buildActivityReport(weekActivities, weekStart(today), today);
+    const goal = goalProgress(businesses, today);
+    return { home, settings, today, apptsOn, tasksOn, todayTasks, done, messages, pool, unplanned, week, goal, callsToday: home.counts.callsToday };
   }, [data]);
 
   if (!plan) return <LoadState error={error} />;
@@ -92,7 +96,7 @@ export default function HomePage() {
       <div className="flex items-baseline justify-between gap-3">
         <h1 className="text-2xl font-semibold tracking-tight">{formatLongDate(day)}</h1>
         <Link href="/rapor" className="shrink-0 text-[15px] font-medium text-meet">
-          Gün sonu ›
+          Rapor ›
         </Link>
       </div>
 
@@ -106,6 +110,8 @@ export default function HomePage() {
           appts: plan.apptsOn(d).filter((v) => v.appointment.status === "planlandi").length,
         })}
       />
+
+      <WeekSummary week={plan.week} goal={plan.goal} />
 
       <WeekPlanCard paused={isPausedOn(settings.pause, today)} pool={plan.pool} target={settings.dailyTarget} unplanned={plan.unplanned} />
 
@@ -426,6 +432,35 @@ function WeekPlanCard({ paused, pool, target, unplanned }: { paused: boolean; po
         </button>
       )}
     </Panel>
+  );
+}
+
+/** Bu hafta ne yaptık: kısa sayılar ve 30 günlük hedef; ayrıntı Rapor'da. */
+function WeekSummary({ week: w, goal }: { week: ActivityReport; goal: GoalProgress }) {
+  const items: [string, number][] = [
+    ["arama", w.calls],
+    ["ulaşılan", w.reached],
+    ["randevu", w.appointmentsBooked],
+    ["ziyaret", w.visits],
+    ["demo", w.demos],
+    ["müşteri", w.newCustomers],
+  ];
+  return (
+    <Link href="/rapor" className="block rounded-lg border border-line bg-surface px-4 py-3 hover:bg-paper">
+      <p className="flex items-baseline justify-between gap-3 text-sm text-muted">
+        <span className="font-medium">Bu hafta</span>
+        <span>
+          Hedef <strong className="font-semibold text-ink">{goal.customers}/{goal.target}</strong> müşteri · {goal.daysLeft} gün kaldı ›
+        </span>
+      </p>
+      <p className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-[15px]">
+        {items.map(([label, n]) => (
+          <span key={label}>
+            <strong className="font-semibold tabular-nums">{n}</strong> {label}
+          </span>
+        ))}
+      </p>
+    </Link>
   );
 }
 
