@@ -65,3 +65,20 @@ describe("demo deposu", () => {
     expect(after.find((a) => a.appointment.id === planned.appointment.id)?.appointment.status).toBe("iptal");
   });
 });
+
+describe("ileri günleri planlama", () => {
+  it("boş günlere farklı klinikler atar, dolu günü tekrar doldurmaz", async () => {
+    const { MemoryRepository } = await import("@/lib/data/memory-store");
+    const { addDays, toDateStr } = await import("@/lib/domain/time");
+    const repo = new MemoryRepository();
+    const today = toDateStr(new Date());
+    const days = [addDays(today, 1), addDays(today, 2)];
+    const first = await repo.planDays(days);
+    const tasks = (await repo.listUpcomingTasks(days[0], days[1])).filter((t) => t.task.kind === "yeni");
+    const ids = tasks.map((t) => t.business.id);
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(first.reduce((n, r) => n + r.added, 0)).toBe(tasks.length);
+    const again = await repo.planDays(days);
+    expect(again.every((r) => r.added === 0)).toBe(true);
+  });
+});

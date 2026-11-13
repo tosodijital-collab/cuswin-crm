@@ -22,6 +22,9 @@ const DEFAULT_DISTRICT_ORDER = [
 /** Bir taramada çalıştırılacak en fazla sorgu (Google'a yükü ve süreyi sınırlar). */
 const MAX_QUERIES_PER_SCAN = 6;
 
+/** Klinik yoğun merkez ilçeler: tam taramada sonuç listesi daha derin kaydırılır. */
+const DENSE_DISTRICTS = new Set(["Çankaya", "Yenimahalle", "Keçiören", "Etimesgut", "Mamak", "Altındağ", "Sincan", "Gölbaşı", "Pursaklar"]);
+
 export function buildQueries(settings: Pick<Settings, "categories" | "districts">): string[] {
   const districts = settings.districts.length ? settings.districts : DEFAULT_DISTRICT_ORDER;
   const queries: string[] = [];
@@ -85,4 +88,67 @@ async function execute(repo: CrmRepository, scan: ScanRun, all: string[], cursor
   }
   scan.finishedAt = new Date().toISOString();
   await repo.saveScan(scan);
+}
+
+/**
+ * Bir defalık tam Ankara taraması: tüm ilçe × kategori sorguları, merkez ilçelerde derin kaydırma,
+ * eklenecek yeni işletme sınırı yok. Tek tarayıcı, sorgular sırayla (Google'a yük düşük kalır).
+ */
+export async function runFullScan(repo: CrmRepository, log: (m: string) => void): Promise<ScanRun> {
+  const settings = await repo.getSettings();
+  const all = buildQueries({ categories: settings.categories, districts: [] });
+  const scan: ScanRun = {
+    id: crypto.randomUUID(),
+    startedAt: new Date().toISOString(),
+    status: "calisiyor",
+    limit: 100_000,
+    queries: [],
+    found: 0,
+    added: 0,
+    updated: 0,
+    flagged: 0,
+    skipped: 0,
+    overLimit: 0,
+  };
+  await repo.saveScan(scan);
+  let failures = 0;
+  for (const [i, query] of all.entries()) {
+    const district = query.replace(/ Ankara$/, "").split(" ").pop() ?? "";
+    const depth = DENSE_DISTRICTS.has(district) ? 8 : 2;
+    try {
+      const raw = await runMapsQuery(query, { depth, timeoutMs: 12 * 60_000 });
+      scan.queries.push(query);
+      scan.found += raw.length;
+      const places: PlaceInput[] = [];
+      for (const r of raw) {
+        const m = mapScrapedPlace(r);
+        if ("place" in m) places.push(m.place);
+        else scan.skipped++;
+      }
+      const res = await repo.importPlaces(places, scan.limit - scan.added);
+      scan.added += res.added;
+      scan.updated += res.updated;
+      scan.flagged += res.flagged;
+      scan.skipped += res.skipped;
+      log(`(${i + 1}/${all.length}) ${query}: ${raw.length} sonuç, ${res.added} yeni`);
+      failures = 0;
+    } catch (e) {
+      failures++;
+      log(`(${i + 1}/${all.length}) ${query}: atlandı (${e instanceof Error ? e.message : "hata"})`);
+      // Art arda hata: Google erişimi kısıtlamış olabilir, zorlamadan dur.
+      if (failures >= 3) {
+        scan.status = "hata";
+        scan.error = "Art arda 3 sorgu başarısız oldu; tarama durduruldu. Bir süre sonra tekrar denenebilir.";
+        break;
+      }
+    }
+    await repo.saveScan(scan);
+  }
+  if (scan.status === "calisiyor") {
+    scan.status = "tamam";
+    scan.note = `Tam Ankara taraması: ${scan.queries.length} sorgu, ${scan.added} yeni işletme.`;
+  }
+  scan.finishedAt = new Date().toISOString();
+  await repo.saveScan(scan);
+  return scan;
 }

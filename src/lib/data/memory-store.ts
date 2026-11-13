@@ -216,6 +216,19 @@ export class MemoryRepository implements CrmRepository {
     this.s.activities.push({ id: id(), businessId, at: nowIso(), type: "asama", stage, note });
   }
 
+  async planDays(days: DateStr[]): Promise<{ date: DateStr; added: number }[]> {
+    const out: { date: DateStr; added: number }[] = [];
+    for (const d of days) {
+      const existing = this.s.runs.find((r) => r.date === d);
+      if (existing) {
+        out.push({ date: d, added: existing.selected < existing.target ? topUpDailyList(this.s, existing) : 0 });
+      } else {
+        out.push({ date: d, added: createDailyList(this.s, d, "manuel").selected });
+      }
+    }
+    return out;
+  }
+
   async listUpcomingTasks(from: DateStr, to: DateStr): Promise<TaskView[]> {
     return this.s.tasks
       .filter((t) => t.status === "acik" && t.dueDate >= from && t.dueDate <= to)

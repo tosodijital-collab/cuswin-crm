@@ -1,8 +1,9 @@
 // Bugün ekranının planı: hafta şeridi, görev etiketleri, gönderilecek mesajlar ve bugün yapılanlar. Saf fonksiyonlar.
 
+import { isNewCandidate } from "./rules";
 import { FOLLOW_UPS } from "./sales-playbook";
 import { addDays, toDateStr } from "./time";
-import type { Activity, Appointment, Business, CallTask, DateStr } from "./types";
+import type { Activity, Appointment, Business, CallTask, DateStr, Settings } from "./types";
 
 /** Gönderilen mesajlar bu önekle not olarak kaydedilir; listeden düşmesi buna bakar. */
 export const SENT_PREFIX = "Mesaj gönderildi: ";
@@ -123,4 +124,20 @@ export function messagesDue({
     out.push({ kind: "teyit", business: b, why: "Yarın randevu", appointment: a });
   }
   return out;
+}
+
+/** Planlanacak iş günleri: bugünden itibaren `count` gün, pazarlar hariç (klinikler çoğunlukla kapalı). */
+export function planningDays(today: DateStr, count = 7): DateStr[] {
+  return weekDays(today, count).filter((d) => new Date(`${d}T12:00:00Z`).getUTCDay() !== 0);
+}
+
+/** Listeye henüz girmemiş, aranabilir klinik sayısı (kaç günlük iş kaldığını göstermek için). */
+export function candidatePoolSize(
+  businesses: Business[],
+  settings: Pick<Settings, "categories" | "districts">,
+  calledIds: ReadonlySet<string>,
+  openTaskIds: ReadonlySet<string>,
+): number {
+  const ctx = { settings, businessIdsWithOpenTask: openTaskIds, businessIdsWithCallHistory: calledIds };
+  return businesses.filter((b) => !b.nextActionDate && isNewCandidate(b, ctx)).length;
 }

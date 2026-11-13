@@ -10,11 +10,21 @@ import { WhatsappTo } from "@/components/send-whatsapp";
 import { closeSheet, openSheet } from "@/components/sheet";
 import { showToast } from "@/components/toast";
 import { EmptyState, LoadState, Panel } from "@/components/ui";
-import { runDailyListAction } from "@/lib/actions";
+import { planWeekAction } from "@/lib/actions";
 import { useData } from "@/lib/client/refresh";
 import { markSent } from "@/lib/client/sent";
 import { getRepository, type AppointmentView, type TaskView } from "@/lib/data";
-import { doneToday, messagesDue, orderToday, SENT_PREFIX, taskLabel, weekDays, type MessageTask } from "@/lib/domain/day-plan";
+import {
+  candidatePoolSize,
+  doneToday,
+  messagesDue,
+  orderToday,
+  planningDays,
+  SENT_PREFIX,
+  taskLabel,
+  weekDays,
+  type MessageTask,
+} from "@/lib/domain/day-plan";
 import { CALL_STATUS_LABELS, VISIT_RESULT_LABELS } from "@/lib/domain/labels";
 import { isPausedOn } from "@/lib/domain/rules";
 import { addDays, formatLongDate, formatTime, relativeDay, toDateStr } from "@/lib/domain/time";
@@ -56,11 +66,20 @@ export default function HomePage() {
     const tasksOn = (d: string) => (d === today ? todayTasks : upcoming.filter((v) => v.task.dueDate === d));
     const done = doneToday(history, byId, today);
     const messages = messagesDue({ businesses: byId, history, sentNotes, appointments: appointments.map((v) => v.appointment), today });
-    return { home, settings, today, apptsOn, tasksOn, todayTasks, done, messages, callsToday: home.counts.callsToday };
+    const pool = candidatePoolSize(
+      businesses,
+      settings,
+      new Set(history.filter((a) => a.type === "arama").map((a) => a.businessId)),
+      new Set([...todayTasks, ...upcoming].map((v) => v.business.id)),
+    );
+    // Planı eksik iş günleri: o güne hiç yeni klinik atanmamış.
+    const newOn = (d: string) => tasksOn(d).filter((v) => v.task.kind === "yeni").length;
+    const unplanned = planningDays(today).filter((d) => newOn(d) < settings.dailyTarget).length;
+    return { home, settings, today, apptsOn, tasksOn, todayTasks, done, messages, pool, unplanned, callsToday: home.counts.callsToday };
   }, [data]);
 
   if (!plan) return <LoadState error={error} />;
-  const { home, settings, today, todayTasks, done, messages } = plan;
+  const { settings, today, todayTasks, done, messages } = plan;
   const day = selected ?? today;
 
   if (session) {
@@ -87,6 +106,8 @@ export default function HomePage() {
         })}
       />
 
+      <WeekPlanCard paused={isPausedOn(settings.pause, today)} pool={plan.pool} target={settings.dailyTarget} unplanned={plan.unplanned} />
+
       {day === today ? (
         <TodayPlan
           today={today}
@@ -95,8 +116,6 @@ export default function HomePage() {
           callsToday={plan.callsToday}
           done={done}
           messages={messages}
-          settings={settings}
-          hasRun={Boolean(home.run)}
           onStart={() => setSession(true)}
         />
       ) : (
@@ -157,8 +176,6 @@ function TodayPlan({
   callsToday,
   done,
   messages,
-  settings,
-  hasRun,
   onStart,
 }: {
   today: string;
@@ -167,13 +184,10 @@ function TodayPlan({
   callsToday: number;
   done: ReturnType<typeof doneToday>;
   messages: MessageTask[];
-  settings: Settings;
-  hasRun: boolean;
   onStart: () => void;
 }) {
   const total = callsToday + tasks.length;
   const plannedAppts = appointments.filter((v) => v.appointment.status === "planlandi");
-  const paused = isPausedOn(settings.pause, today);
 
   return (
     <>
@@ -211,7 +225,6 @@ function TodayPlan({
             Aramaya başla ({tasks.length})
           </button>
         )}
-        {!hasRun && !paused && <PrepareList target={settings.dailyTarget} />}
       </Panel>
 
       {appointments.length > 0 && (
@@ -299,7 +312,7 @@ function FuturePlan({
         </p>
         <p className="mt-1 text-sm text-muted">
           Açmayanlar ve &quot;sonra ara&quot; dediklerin buraya kendiliğinden düşer.
-          {!paused && ` O sabah ${settings.dailyTarget} yeni klinik daha eklenir.`}
+          {tasks.length === 0 && !paused && " Bu güne henüz yeni klinik atanmadı: yukarıdan \"Haftayı planla\"."}
         </p>
       </Panel>
       {appointments.length > 0 && (
@@ -370,25 +383,43 @@ function FollowUpBody({ m }: { m: MessageTask }) {
   );
 }
 
-function PrepareList({ target }: { target: number }) {
+/** Haftanın planı: boş günlere yeni klinik atar; ara verildiyse ve aranacak klinik bittiyse açıkça söyler. */
+function WeekPlanCard({ paused, pool, target, unplanned }: { paused: boolean; pool: number; target: number; unplanned: number }) {
   const [pending, start] = useTransition();
+  if (!paused && unplanned === 0 && pool >= target) return null;
   return (
-    <div className="mt-3 rounded-md bg-paper px-3 py-3 text-[15px]">
-      <p>Bugünün {target} yeni kliniği henüz eklenmedi (her sabah 08.30&apos;da eklenir).</p>
-      <button
-        type="button"
-        disabled={pending}
-        onClick={() =>
-          start(async () => {
-            const r = await runDailyListAction();
-            if (r.message) showToast(r.message);
-          })
-        }
-        className="mt-2 min-h-11 rounded-md bg-ink px-4 text-[15px] font-semibold text-white disabled:opacity-50"
-      >
-        {pending ? "Hazırlanıyor" : "Şimdi ekle"}
-      </button>
-    </div>
+    <Panel className="grid gap-2 px-4 py-4">
+      {paused && (
+        <p className="rounded-md bg-late-soft px-3 py-2 text-[15px] text-late">
+          Otomatik liste ve Google Maps taraması <strong className="font-semibold">kapalı (ara verildi)</strong>. Yeni klinik kendiliğinden
+          gelmez.{" "}
+          <Link href="/ayarlar" className="font-semibold underline">
+            Ayarlar → Devam et
+          </Link>
+        </p>
+      )}
+      <p className="text-[15px]">
+        Aranmamış <strong className="font-semibold">{pool}</strong> klinik var
+        {pool > 0 && <span className="text-muted"> (günde {target} ile ~{Math.ceil(pool / target)} günlük)</span>}.
+        {unplanned > 0 && pool > 0 && ` ${unplanned} günün listesi boş ya da eksik.`}
+      </p>
+      {pool < target * 5 && <p className="text-sm text-muted">Klinik azalıyor: Ayarlar → &quot;Şimdi tara&quot; ile Google Maps&apos;ten yenileri eklenir.</p>}
+      {unplanned > 0 && pool > 0 && (
+        <button
+          type="button"
+          disabled={pending}
+          onClick={() =>
+            start(async () => {
+              const r = await planWeekAction();
+              if (r.message) showToast(r.message);
+            })
+          }
+          className="min-h-12 rounded-md bg-ink px-4 text-[16px] font-semibold text-white disabled:opacity-50"
+        >
+          {pending ? "Planlanıyor" : `Haftayı planla (günde ${target} klinik)`}
+        </button>
+      )}
+    </Panel>
   );
 }
 

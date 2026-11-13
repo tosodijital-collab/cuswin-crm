@@ -6,6 +6,7 @@ import { normalizePhone, normalizeWebsite, withWhatsapp } from "@/lib/domain/con
 import { decideImport } from "@/lib/domain/places";
 import {
   dataIssues,
+  selectDailyCandidates,
   decideCallOutcome,
   decideVisitOutcome,
   recomputeFailedStreak,
@@ -183,6 +184,18 @@ export class SupabaseRepository implements CrmRepository {
 
   constructor(private readonly db: SupabaseClient) {}
 
+  /** Supabase bir istekte en fazla 1000 satır verir; listeyi sayfa sayfa sonuna kadar okur. */
+  private async all(page: (from: number, to: number) => PromiseLike<{ data: unknown; error: { message: string } | null }>): Promise<Row[]> {
+    const size = 1000;
+    const out: Row[] = [];
+    for (let from = 0; from < 100_000; from += size) {
+      const rows = (await this.q(page(from, from + size - 1))) as Row[];
+      out.push(...rows);
+      if (rows.length < size) break;
+    }
+    return out;
+  }
+
   private async q<T>(p: PromiseLike<{ data: T | null; error: { message: string } | null }>): Promise<T> {
     const { data, error } = await p;
     if (error) throw new Error(`Veritabanı hatası: ${error.message}`);
@@ -267,14 +280,17 @@ export class SupabaseRepository implements CrmRepository {
   }
 
   async listBusinesses(f: BusinessFilters): Promise<Business[]> {
-    let query = this.db.from("businesses").select("*");
-    if (f.category) query = query.contains("categories", [f.category]);
-    if (f.district) query = query.eq("district", f.district);
-    if (f.callStatus) query = query.eq("call_status", f.callStatus);
-    if (f.salesStage) query = query.eq("sales_stage", f.salesStage);
-    if (f.source) query = query.eq("source", f.source);
-    if (f.needsReview) query = query.not("review_reason", "is", null);
-    const rows = ((await this.q(query.limit(5000))) as Row[]).map(toBusiness);
+    const page = (from: number, to: number) => {
+      let query = this.db.from("businesses").select("*");
+      if (f.category) query = query.contains("categories", [f.category]);
+      if (f.district) query = query.eq("district", f.district);
+      if (f.callStatus) query = query.eq("call_status", f.callStatus);
+      if (f.salesStage) query = query.eq("sales_stage", f.salesStage);
+      if (f.source) query = query.eq("source", f.source);
+      if (f.needsReview) query = query.not("review_reason", "is", null);
+      return query.order("id").range(from, to);
+    };
+    const rows = (await this.all(page)).map(toBusiness);
     const q = f.q ? f.q.trim().toLocaleLowerCase("tr-TR") : "";
     const qDigits = f.q?.replace(/\D/g, "") ?? "";
     return rows
@@ -326,16 +342,17 @@ export class SupabaseRepository implements CrmRepository {
   }
 
   async listContactHistory(): Promise<Activity[]> {
-    const rows = await this.q(
+    const rows = await this.all((from, to) =>
       this.db
         .from("activities")
         .select("id, business_id, at, type, call_result, stage, note, voided_at")
         .in("type", ["arama", "ziyaret"])
         .is("voided_at", null)
         .order("at", { ascending: false })
-        .limit(5000),
+        .order("id")
+        .range(from, to),
     );
-    return (rows as Row[]).map(toActivity);
+    return rows.map(toActivity);
   }
 
   async listActivitiesSince(sinceIso: string): Promise<Activity[]> {
@@ -348,6 +365,34 @@ export class SupabaseRepository implements CrmRepository {
   async setSalesStage(businessId: string, stage: SalesStage, note?: string): Promise<void> {
     await this.q(this.db.from("businesses").update({ sales_stage: stage }).eq("id", businessId));
     await this.q(this.db.from("activities").insert({ business_id: businessId, type: "asama", stage, note: note ?? null }));
+  }
+
+  async planDays(days: DateStr[]): Promise<{ date: DateStr; added: number }[]> {
+    const [settings, bizRows, taskRows, callRows] = await Promise.all([
+      this.getSettings(),
+      this.all((f, t) => this.db.from("businesses").select("*").order("id").range(f, t)),
+      // Veritabanı kuralı: açık görevi olan ya da daha önce listeye girmiş klinik yeniden seçilmez.
+      this.all((f, t) => this.db.from("call_tasks").select("id, business_id").or("status.eq.acik,kind.eq.yeni").order("id").range(f, t)),
+      this.all((f, t) => this.db.from("activities").select("id, business_id").eq("type", "arama").order("id").range(f, t)),
+    ]);
+    const ctx = {
+      settings,
+      businessIdsWithOpenTask: new Set((taskRows as Row[]).map((r) => String(r.business_id))),
+      businessIdsWithCallHistory: new Set((callRows as Row[]).map((r) => String(r.business_id))),
+    };
+    let pool = selectDailyCandidates((bizRows as Row[]).map(toBusiness), ctx, Number.MAX_SAFE_INTEGER).selected.map((b) => b.id);
+    const out: { date: DateStr; added: number }[] = [];
+    for (const date of days) {
+      const ids = pool.slice(0, settings.dailyTarget);
+      const shortfall = ids.length < settings.dailyTarget ? `Aranmamış klinik kalmadı (${ids.length}/${settings.dailyTarget}). Yeni tarama gerekli.` : null;
+      const res = (await this.q(
+        this.db.rpc("create_daily_list", { p_date: date, p_trigger: "manuel", p_target: settings.dailyTarget, p_business_ids: ids, p_shortfall: shortfall }),
+      )) as { added: number };
+      // Fonksiyon günün boş yeri kadarını, verilen sırayla ekler.
+      pool = pool.slice(res.added);
+      out.push({ date, added: res.added });
+    }
+    return out;
   }
 
   async listUpcomingTasks(from: DateStr, to: DateStr): Promise<TaskView[]> {
@@ -574,7 +619,10 @@ export class SupabaseRepository implements CrmRepository {
 
   async importPlaces(places: PlaceInput[], maxNew: number): Promise<ImportResult> {
     const result: ImportResult = { added: 0, updated: 0, flagged: 0, skipped: 0, overLimit: 0 };
-    const existing = ((await this.q(this.db.from("businesses").select("*"))) as Row[]).map((r) => ({ b: toBusiness(r), userEdited: !!r.user_edited }));
+    const existing = (await this.all((f, t) => this.db.from("businesses").select("*").order("id").range(f, t))).map((r) => ({
+      b: toBusiness(r),
+      userEdited: !!r.user_edited,
+    }));
     const now = new Date().toISOString();
     for (const place of places) {
       const decision = decideImport(existing.map((e) => e.b), place);

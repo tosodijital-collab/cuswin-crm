@@ -106,6 +106,11 @@ export interface CrmRepository {
   listContactHistory(): Promise<Activity[]>;
   /** Günü gelecek açık arama görevleri (from ≤ gün ≤ to), güne ve saate göre. */
   listUpcomingTasks(from: DateStr, to: DateStr): Promise<TaskView[]>;
+  /**
+   * İleri günleri şimdiden planlar: listesi olmayan ya da eksik kalan her güne, günlük listeyle aynı kuralla
+   * (en eski bulunan önce) hedef kadar yeni klinik atar. O sabah otomatik liste dolu günü tekrar doldurmaz.
+   */
+  planDays(days: DateStr[]): Promise<{ date: DateStr; added: number }[]>;
   /** Notu bu önekle başlayan geçerli notlar (ör. "Mesaj gönderildi:"), yeniden eskiye. */
   listNotesWithPrefix(prefix: string): Promise<Activity[]>;
   /** Bu andan sonraki tüm geçerli geçmiş kayıtları (gün sonu raporu için). */

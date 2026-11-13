@@ -5,6 +5,7 @@ import { syncCalendarNow } from "@/lib/calendar-now";
 import { notifyDataChanged } from "@/lib/client/refresh";
 import { getRepository } from "@/lib/data";
 import { REFERRAL_NOTE_PREFIX } from "@/lib/domain/report";
+import { planningDays } from "@/lib/domain/day-plan";
 import { RuleError } from "@/lib/domain/rules";
 import { withInsights } from "@/lib/domain/sales-playbook";
 import { addDays, istanbulToUtc, toDateStr } from "@/lib/domain/time";
@@ -299,6 +300,17 @@ export async function saveSettingsAction(_: ActionState, formData: FormData): Pr
       });
     await getRepository().updateSettings(input);
     return "Ayarlar kaydedildi.";
+  });
+}
+
+/** "Haftayı planla": bugünden 7 gün (pazar hariç) her güne günlük hedef kadar yeni klinik atar. */
+export async function planWeekAction(): Promise<ActionState> {
+  return run(async () => {
+    const res = await getRepository().planDays(planningDays(toDateStr(new Date())));
+    const added = res.reduce((n, r) => n + r.added, 0);
+    const short = res.filter((r) => r.added === 0).length;
+    if (added === 0) return "Plan zaten dolu ya da aranmamış klinik kalmadı. Yeni klinik için tarama gerekli.";
+    return `${added} klinik ${res.filter((r) => r.added > 0).length} güne planlandı.` + (short ? " Bazı günler için aranmamış klinik yetmedi; tarama gerekli." : "");
   });
 }
 

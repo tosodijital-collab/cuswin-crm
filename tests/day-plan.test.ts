@@ -125,3 +125,11 @@ describe("teklif ve teyit yazısı", () => {
     expect(formatLongDateTime("2026-11-17T11:00:00Z")).toBe("17 Kasım Salı, saat 14:00");
   });
 });
+
+describe("haftayı planla", () => {
+  it("pazarı atlar", async () => {
+    const { planningDays } = await import("@/lib/domain/day-plan");
+    // 13 Kasım 2026 cuma: cu, ct, (pz atlanır), pt, sa, ça, pe
+    expect(planningDays("2026-11-13")).toEqual(["2026-11-13", "2026-11-14", "2026-11-16", "2026-11-17", "2026-11-18", "2026-11-19"]);
+  });
+});
